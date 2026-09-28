@@ -58,6 +58,7 @@ type ChildResult = {
   usage: Usage;
   stopReason?: string;
   errorMessage?: string;
+  thinkingLevel?: string;
 };
 
 function packageRoot(): string {
@@ -289,6 +290,7 @@ export default function (pi: ExtensionAPI) {
             usage: { input: event.usage?.input ?? total("input"), output: event.usage?.output ?? total("output"), cacheRead: event.usage?.cacheRead ?? total("cacheRead"), cacheWrite: event.usage?.cacheWrite ?? total("cacheWrite"), cost: event.usage?.cost?.total ?? turns.reduce((sum, message) => sum + (message.usage?.cost?.total ?? 0), 0), turns: turns.length },
             stopReason: event.status === "error" || event.status === "aborted" ? event.status : undefined,
             errorMessage: event.error,
+            thinkingLevel: event.thinkingLevel,
           };
         };
         const event = await runSubagent(pi, agent, task.task, task.cwd ?? ctx.cwd, model, signal, (progress) => {

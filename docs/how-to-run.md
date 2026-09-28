@@ -40,7 +40,7 @@ The test asserts these behaviors:
 
 - The bundled `poteto-agent` resolves without copying any file into a user or project agents directory.
 - The result keeps ordered messages in `details.results[].messages`.
-- A role configured with `provider/model:high` resolves the model and passes `high` as the child's thinking level.
+- A role configured with `provider/model:high` resolves the model and reports the child's effective thinking level as `high`.
 - Parallel and chain modes return their expected ordering and status.
 - Progress updates arrive before completion for child messages.
 - A same-name project agent does not replace the bundled definition under the default scope.

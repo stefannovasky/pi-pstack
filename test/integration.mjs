@@ -54,6 +54,7 @@ try {
   assert.equal(selected[0].isError, false, selected[0].result.content[0].text);
   assert.equal(selected[0].result.details.results[0].exitCode, 0);
   assert.equal(selected[0].result.details.results[0].model, `${provider}/${model}:high`);
+  assert.equal(selected[0].result.details.results[0].thinkingLevel, "high");
   assert(selectedEvents.some((event) => event.type === "tool_execution_update" && event.partialResult?.details?.results?.[0]?.messages?.length), "Expected child message progress before completion.");
 
   const modes = invoke('Call subagent with tasks [{"agent":"poteto-agent","task":"Read package.json and answer only pi-pstack"},{"agent":"poteto-agent","task":"Read agents/poteto-agent.md and answer only poteto-agent"}]. Then call subagent with chain [{"agent":"poteto-agent","task":"Say only pi-pstack"},{"agent":"poteto-agent","task":"Echo exactly this: {previous}"}]. Do not call Agent.');

@@ -2,7 +2,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { Message } from "@earendil-works/pi-ai";
 import type { AgentConfig } from "./agents.ts";
 
-type EventData = { id: string; status: string; result?: string; error?: string; messages?: Message[]; usage?: { input?: number; output?: number; cacheRead?: number; cacheWrite?: number; cost?: { total?: number } }; model?: string };
+type EventData = { id: string; status: string; result?: string; error?: string; messages?: Message[]; usage?: { input?: number; output?: number; cacheRead?: number; cacheWrite?: number; cost?: { total?: number } }; model?: string; thinkingLevel?: string };
 type Reply = { success: boolean; data?: { id?: string; version?: number }; error?: string };
 let requestSequence = 0;
 
