@@ -118,7 +118,7 @@ Launch all matching investigators in a single message so they run concurrently. 
 Subagent config (each):
 - `agent`: `poteto-agent`
 - `model`: your configured why-investigators model (default `inherit-parent`)
-- use a normal Pi child process. **Do not use restricted-tool mode.** It strips MCP access, which disables MCP-backed investigators entirely. The source control investigator would be safe in readonly, but keep modes uniform. Investigators still shouldn't write anything. That's a posture, not a sandbox.
+- use a normal tintinweb child session. **Do not use restricted-tool mode.** It strips MCP access, which disables MCP-backed investigators entirely. The source control investigator would be safe in readonly, but keep modes uniform. Investigators still shouldn't write anything. That's a posture, not a sandbox.
 
 Each investigator gets:
 1. The base prompt from `references/investigator-prompt.md`
@@ -164,7 +164,7 @@ Spawn one synthesizer subagent:
 
 - `agent`: `poteto-agent`
 - `model`: your configured why-synthesizer model (default `inherit-parent`)
-- use a normal Pi child process. The synthesizer's quality check spot-verifies citations, which can require MCP access. Tool availability varies by Pi configuration and defeats that.
+- use a normal tintinweb child session. The synthesizer's quality check spot-verifies citations, which can require MCP access. Tool availability varies by Pi configuration and defeats that.
 
 The synthesizer gets:
 1. The investigator findings, including any null results and any categories skipped with justification
