@@ -75,11 +75,14 @@ try {
   const childContext = mkdtempSync(join(profile, "child-"));
   writeFileSync(join(parentContext, "AGENTS.md"), "PARENT_CONTEXT_MARKER\n");
   writeFileSync(join(childContext, "AGENTS.md"), "CHILD_CONTEXT_MARKER\n");
+  mkdirSync(join(childContext, ".pi/skills/child-context-skill"), { recursive: true });
+  writeFileSync(join(childContext, ".pi/skills/child-context-skill/SKILL.md"), "---\nname: child-context-skill\ndescription: Child project marker skill.\n---\nUse only in the child project.\n");
   const contextCall = invoke(`Call subagent with agent comment-sicko, cwd ${JSON.stringify(childContext)}, and task "Say OK." Do not call Agent.`, undefined, parentContext);
   assert.equal(contextCall.length, 1);
   const systemMessage = JSON.stringify(contextCall[0].result.details.results[0].messages.find((message) => message.role === "system"));
   assert(systemMessage.includes("CHILD_CONTEXT_MARKER"), "Child instructions must come from task.cwd.");
   assert(!systemMessage.includes("PARENT_CONTEXT_MARKER"), "Parent project instructions must not leak to a different cwd.");
+  assert(systemMessage.includes("child-context-skill"), "Child skills must come from task.cwd.");
 
   const missing = invoke('Call subagent with agent poteto-agent and task "Say yes".', [resolve(root, "extensions/pstack/index.ts")]);
   assert.equal(missing.length, 1);
