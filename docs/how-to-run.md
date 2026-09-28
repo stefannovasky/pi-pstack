@@ -82,6 +82,8 @@ PI_CODING_AGENT_DIR="$PROFILE" \
   --extension ./pi-pstack/extensions/pstack/index.ts
 ```
 
+The pstack workflow skills are present, but most are explicit-only. They do not appear in the model's automatic skill list. Enter `/skill:arena` to invoke that skill directly. Enter `/poteto-mode` to enable sticky Poteto Mode for the current Pi session. A fresh disposable profile starts with this mode off.
+
 Then ask for a delegate:
 
 ```text
@@ -114,7 +116,7 @@ EOF
 PI_CODING_AGENT_DIR="$PROFILE" pi --provider commandcode --model deepseek/deepseek-v4-pro
 ```
 
-Your personal `~/.pi/agent/settings.json` is left alone. The profile under `/tmp` holds all changes. In Pi, use the `subagent` tool with agent `poteto-agent` and ask it to read `pi-pstack/package.json`. Exit with `/quit`. To remove the temporary profile and its copied credentials afterward, run `rm -rf "$PROFILE"` only while `PROFILE` still points to the directory you created with `mktemp -d`.
+Your personal `~/.pi/agent/settings.json` is left alone. The profile under `/tmp` holds all changes. In Pi, enter `/poteto-mode` to enable the workflow, or `/skill:arena` to invoke a specific skill. Then use the `subagent` tool with agent `poteto-agent` and ask it to read `pi-pstack/package.json`. Exit with `/quit`. To remove the temporary profile and its copied credentials afterward, run `rm -rf "$PROFILE"` only while `PROFILE` still points to the directory you created with `mktemp -d`.
 
 ## Release notes
 
