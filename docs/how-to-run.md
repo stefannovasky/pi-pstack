@@ -10,7 +10,7 @@ pi-pstack-subagents-migration/
 └── pi-subagents/  branch migration/pstack-package-agents
 ```
 
-The `pi-subagents` branch adds RPC protocol 3. It carries two capabilities the migration needs: spawn-local agent definitions and ordered messages on completion events. The `pi-pstack` branch replaces its subprocess runner with an adapter over that protocol.
+The `pi-subagents` branch adds RPC protocol 4. It carries spawn-local agent definitions, ordered messages on completion events, and per-message progress events. The `pi-pstack` branch replaces its subprocess runner with an adapter over that protocol.
 
 ## Requirements
 
@@ -42,6 +42,7 @@ The test asserts these behaviors:
 - The result keeps ordered messages in `details.results[].messages`.
 - A role configured with `provider/model:high` resolves the model and passes `high` as the child's thinking level.
 - Parallel and chain modes return their expected ordering and status.
+- Progress updates arrive before completion for child messages.
 - A same-name project agent does not replace the bundled definition under the default scope.
 - A missing `pi-subagents` extension fails with an installation error, not a substitute agent.
 - A child bash call that looks external is blocked without interactive approval.
@@ -112,4 +113,4 @@ Your personal `~/.pi/agent/settings.json` is left alone. The profile under `/tmp
 
 ## Release notes
 
-The `pi-subagents` changes are not released upstream. Until protocol 3 ships, `pi-pstack` requires the `migration/pstack-package-agents` branch. The adapter fails with a clear message when it sees an older or absent extension rather than running a different agent.
+The `pi-subagents` changes are not released upstream. Until protocol 4 ships, `pi-pstack` requires the `migration/pstack-package-agents` branch. The adapter fails with a clear message when it sees an older or absent extension rather than running a different agent.

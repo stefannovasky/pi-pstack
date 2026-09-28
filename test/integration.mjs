@@ -19,7 +19,7 @@ const model = process.env.PI_MODEL || (hasCommandcode ? "deepseek/deepseek-v4-pr
 
 const profile = mkdtempSync(join(process.env.PI_CODING_AGENT_DIR, "integration-"));
 
-function invoke(prompt, extensions = [upstream, resolve(root, "extensions/pstack/index.ts")], cwd = root) {
+function invoke(prompt, extensions = [upstream, resolve(root, "extensions/pstack/index.ts")], cwd = root, raw = false) {
   const modelArgs = provider && model ? ["--provider", provider, "--model", model] : [];
   const providerArgs = provider === "commandcode" ? ["--extension", commandcodeExt] : [];
   const run = spawnSync("pi", [...modelArgs, "--no-session", "--mode", "json", ...providerArgs, ...extensions.flatMap((extension) => ["--extension", extension]), "--print", prompt], {
@@ -33,7 +33,7 @@ function invoke(prompt, extensions = [upstream, resolve(root, "extensions/pstack
   const events = run.stdout.split("\n").flatMap((line) => {
     try { return [JSON.parse(line)]; } catch { return []; }
   });
-  return events.filter((event) => event.type === "tool_execution_end" && event.toolName === "subagent");
+  return events.filter((event) => event.toolName === "subagent" && (raw || event.type === "tool_execution_end"));
 }
 
 try {
@@ -48,11 +48,13 @@ try {
 
   mkdirSync(join(profile, "pstack"), { recursive: true });
   writeFileSync(join(profile, "pstack/models.json"), JSON.stringify({ version: 1, roles: { "bug-fix": `${provider}/${model}:high` } }));
-  const selected = invoke('Call subagent with agent poteto-agent, role "bug-fix", and task "Say exactly OK." Do not call Agent.');
+  const selectedEvents = invoke('Call subagent with agent poteto-agent, role "bug-fix", and task "Say exactly OK." Do not call Agent.', undefined, root, true);
+  const selected = selectedEvents.filter((event) => event.type === "tool_execution_end");
   assert.equal(selected.length, 1);
   assert.equal(selected[0].isError, false, selected[0].result.content[0].text);
   assert.equal(selected[0].result.details.results[0].exitCode, 0);
   assert(selected[0].result.details.results[0].model.includes(model));
+  assert(selectedEvents.some((event) => event.type === "tool_execution_update" && event.partialResult?.details?.results?.[0]?.messages?.length), "Expected child message progress before completion.");
 
   const modes = invoke('Call subagent with tasks [{"agent":"poteto-agent","task":"Read package.json and answer only pi-pstack"},{"agent":"poteto-agent","task":"Read agents/poteto-agent.md and answer only poteto-agent"}]. Then call subagent with chain [{"agent":"poteto-agent","task":"Say only pi-pstack"},{"agent":"poteto-agent","task":"Echo exactly this: {previous}"}]. Do not call Agent.');
   assert.deepEqual(modes.map((event) => event.result.details.mode), ["parallel", "chain"]);

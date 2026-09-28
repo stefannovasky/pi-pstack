@@ -276,18 +276,25 @@ export default function (pi: ExtensionAPI) {
       });
       const start = async (task: TaskInput, index = 0, update?: (result: ChildResult) => void): Promise<ChildResult> => {
         const agent = agents.find((candidate) => candidate.name === task.agent);
-        if (!agent) return { agent: task.agent, source: "unknown", task: task.task, exitCode: 1, messages: [], stderr: `Unknown agent ${JSON.stringify(task.agent)}.`, usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 0 } };
+        if (!agent) return { agent: task.agent, source: "unknown", task: task.task, exitCode: 1, messages: [], stderr: `Unknown agent ${JSON.stringify(task.agent)}. Available agents: ${agents.map((item) => item.name).join(", ") || "none"}.`, usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 0 } };
         const model = childModel(task, index);
-        const event = await runSubagent(pi, agent, task.task, task.cwd ?? ctx.cwd, model, signal);
-        const failed = event.status === "error" || event.status === "stopped" || event.status === "aborted";
-        const result: ChildResult = {
-          agent: agent.name, source: agent.source, task: task.task, model: event.model ?? model,
-          exitCode: failed ? 1 : 0,
-          messages: event.messages ?? [], stderr: event.error ?? "",
-          usage: { input: event.usage?.input ?? 0, output: event.usage?.output ?? 0, cacheRead: event.usage?.cacheRead ?? 0, cacheWrite: event.usage?.cacheWrite ?? 0, cost: event.usage?.cost?.total ?? 0, turns: event.messages?.filter((message) => message.role === "assistant").length ?? 0 },
-          stopReason: event.status === "error" || event.status === "aborted" ? event.status : undefined,
-          errorMessage: event.error,
+        const asResult = (event: Awaited<ReturnType<typeof runSubagent>>): ChildResult => {
+          const failed = event.status === "error" || event.status === "stopped" || event.status === "aborted";
+          const turns = event.messages?.filter((message) => message.role === "assistant") ?? [];
+          const total = (field: "input" | "output" | "cacheRead" | "cacheWrite") => turns.reduce((sum, message) => sum + (message.usage?.[field] ?? 0), 0);
+          return {
+            agent: agent.name, source: agent.source, task: task.task, model: event.model ?? model,
+            exitCode: failed ? 1 : 0,
+            messages: event.messages ?? [], stderr: event.error ?? "",
+            usage: { input: event.usage?.input ?? total("input"), output: event.usage?.output ?? total("output"), cacheRead: event.usage?.cacheRead ?? total("cacheRead"), cacheWrite: event.usage?.cacheWrite ?? total("cacheWrite"), cost: event.usage?.cost?.total ?? turns.reduce((sum, message) => sum + (message.usage?.cost?.total ?? 0), 0), turns: turns.length },
+            stopReason: event.status === "error" || event.status === "aborted" ? event.status : undefined,
+            errorMessage: event.error,
+          };
         };
+        const event = await runSubagent(pi, agent, task.task, task.cwd ?? ctx.cwd, model, signal, (progress) => {
+          if (progress.status === "running") update?.(asResult(progress));
+        });
+        const result = asResult(event);
         update?.(result);
         return result;
       };

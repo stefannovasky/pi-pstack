@@ -20,7 +20,7 @@ export async function runSubagent(pi: ExtensionAPI, agent: AgentConfig, task: st
     events.emit(channel, { requestId, ...payload });
   });
   const ping = await rpc("ping", {});
-  if (!ping.success || (ping.data?.version ?? 0) < 3) throw new Error("pi-subagents RPC protocol 3 or newer is required for package-local agents.");
+  if (!ping.success || (ping.data?.version ?? 0) < 4) throw new Error("pi-subagents RPC protocol 4 or newer is required for package-local agents and progress events.");
 
   let ownedId: string | undefined;
   const early = new Map<string, EventData>();
@@ -36,6 +36,7 @@ export async function runSubagent(pi: ExtensionAPI, agent: AgentConfig, task: st
   };
   const offDone = events.on("subagents:completed", onFinished);
   const offFailed = events.on("subagents:failed", onFinished);
+  const offProgress = events.on(`subagents:rpc:progress:${requestId}`, (raw) => onUpdate?.(raw as EventData));
   const abort = () => { if (ownedId) events.emit("subagents:rpc:stop", { requestId, agentId: ownedId }); };
   signal?.addEventListener("abort", abort, { once: true });
   try {
@@ -62,6 +63,7 @@ export async function runSubagent(pi: ExtensionAPI, agent: AgentConfig, task: st
   } finally {
     offDone();
     offFailed();
+    offProgress();
     signal?.removeEventListener("abort", abort);
   }
 }
