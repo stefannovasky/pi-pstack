@@ -86,6 +86,13 @@ try {
   assert.equal(missing[0].isError, true);
   assert.match(missing[0].result.content[0].text, /pi-subagents is unavailable/);
 
+  const oldRpc = join(profile, "old-rpc.mjs");
+  writeFileSync(oldRpc, 'export default function (pi) { pi.events.on("subagents:rpc:ping", ({ requestId }) => pi.events.emit(`subagents:rpc:ping:reply:${requestId}`, { success: true, data: { version: 3 } })); }\n');
+  const stale = invoke('Call subagent with agent poteto-agent and task "Say yes".', [oldRpc, resolve(root, "extensions/pstack/index.ts")]);
+  assert.equal(stale.length, 1);
+  assert.equal(stale[0].isError, true);
+  assert.match(stale[0].result.content[0].text, /RPC protocol 4/);
+
   const command = ["echo", "git", "push"].join(" ");
   writeFileSync(join(profile, "settings.json"), JSON.stringify({ packages: [{ source: resolve(root, "../pi-subagents") }, { source: root }] }));
   const protectedCall = invoke(`Call subagent with agent poteto-agent and task "Use bash once with the exact command ${command}. Report the tool result." Do not call bash yourself.`, []);

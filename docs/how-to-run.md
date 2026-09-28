@@ -45,10 +45,12 @@ The test asserts these behaviors:
 - Progress updates arrive before completion for child messages.
 - A same-name project agent does not replace the bundled definition under the default scope.
 - A task with another `cwd` loads that directory's project instructions, not the parent's.
-- A missing `pi-subagents` extension fails with an installation error, not a substitute agent.
+- A missing `pi-subagents` extension or a stale RPC protocol fails instead of running a substitute agent.
 - A child bash call that looks external is blocked without interactive approval.
 
 It prints one line on success and exits nonzero on any failure.
+
+When you set a different `cwd` for a task, the child reads that directory's project instructions. It does not load extensions or skills installed only in that directory. Loading those into the parent Pi process would execute code from another project; the old standalone child ran that code in a separate process.
 
 ## Run the upstream suite
 
