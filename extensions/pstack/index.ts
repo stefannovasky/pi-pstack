@@ -1,15 +1,12 @@
-import { spawn } from "node:child_process";
-import * as fs from "node:fs";
-import * as fsp from "node:fs/promises";
-import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { StringEnum } from "@earendil-works/pi-ai";
 import type { Message } from "@earendil-works/pi-ai";
-import { getAgentDir, SessionManager, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { SessionManager, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { bundledAgentsDirectory, discoverAgents, projectAgentsDirectory, type AgentConfig, type AgentScope } from "./agents.ts";
 import { ROLE_NAMES, configPath, defaultConfig, modelsForRole, readConfig, writeConfig } from "./config.ts";
+import { runSubagent } from "./rpc.ts";
 
 const MAX_PARALLEL_TASKS = 8;
 const MAX_CONCURRENCY = 4;
@@ -85,135 +82,6 @@ function truncate(text: string): string {
   let output = text.slice(0, MAX_MODEL_OUTPUT_BYTES);
   while (Buffer.byteLength(output) > MAX_MODEL_OUTPUT_BYTES) output = output.slice(0, -1);
   return `${output}\n\n[Output truncated. Full transcript is retained in the tool details.]`;
-}
-
-function piInvocation(args: string[]): { command: string; args: string[] } {
-  const script = process.argv[1];
-  if (script && fs.existsSync(script) && !script.startsWith("/$bunfs/root/")) {
-    return { command: process.execPath, args: [script, ...args] };
-  }
-  const executable = path.basename(process.execPath).toLowerCase();
-  return /^(node|bun)(\.exe)?$/.test(executable)
-    ? { command: "pi", args }
-    : { command: process.execPath, args };
-}
-
-async function temporaryPrompt(agent: AgentConfig): Promise<{ directory: string; file: string }> {
-  const directory = await fsp.mkdtemp(path.join(os.tmpdir(), "pi-pstack-agent-"));
-  const file = path.join(directory, `${agent.name.replace(/[^a-z0-9_.-]/gi, "_")}.md`);
-  let prompt = agent.systemPrompt.trim();
-  if (agent.name === "poteto-agent") {
-    prompt += `\n\nBefore any work, use the read tool to load ${path.join(packageRoot(), "skills/poteto-mode/SKILL.md")} in full. It is the canonical Pi pstack mode.`;
-  }
-  await fsp.writeFile(file, prompt, { encoding: "utf8", mode: 0o600 });
-  return { directory, file };
-}
-
-async function runChild(
-  parentCwd: string,
-  task: TaskInput,
-  agents: AgentConfig[],
-  model: string | undefined,
-  signal: AbortSignal | undefined,
-  onUpdate: ((result: ChildResult) => void) | undefined,
-): Promise<ChildResult> {
-  const agent = agents.find((candidate) => candidate.name === task.agent);
-  if (!agent) {
-    return {
-      agent: task.agent,
-      source: "unknown",
-      task: task.task,
-      exitCode: 1,
-      messages: [],
-      stderr: `Unknown agent ${JSON.stringify(task.agent)}. Available agents: ${agents.map((item) => item.name).join(", ") || "none"}.`,
-      usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 0 },
-    };
-  }
-
-  const result: ChildResult = {
-    agent: agent.name,
-    source: agent.source,
-    task: task.task,
-    model,
-    exitCode: 0,
-    messages: [],
-    stderr: "",
-    usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 0 },
-  };
-  const temp = await temporaryPrompt(agent);
-  try {
-    const args = ["--mode", "json", "--print", "--no-session", "--append-system-prompt", temp.file];
-    if (model) args.push("--model", model);
-    if (agent.tools?.length) args.push("--tools", agent.tools.join(","));
-    args.push(`Delegated task:\n${task.task}`);
-
-    await new Promise<void>((resolve) => {
-      const invocation = piInvocation(args);
-      const process = spawn(invocation.command, invocation.args, {
-        cwd: task.cwd ?? parentCwd,
-        shell: false,
-        stdio: ["ignore", "pipe", "pipe"],
-      });
-      let buffer = "";
-      let aborted = false;
-      const update = () => onUpdate?.(result);
-      const parse = (line: string) => {
-        if (!line.trim()) return;
-        try {
-          const event = JSON.parse(line) as { type?: string; message?: Message };
-          if ((event.type === "message_end" || event.type === "tool_result_end") && event.message) {
-            result.messages.push(event.message);
-            if (event.message.role === "assistant") {
-              result.usage.turns += 1;
-              const usage = event.message.usage;
-              if (usage) {
-                result.usage.input += usage.input ?? 0;
-                result.usage.output += usage.output ?? 0;
-                result.usage.cacheRead += usage.cacheRead ?? 0;
-                result.usage.cacheWrite += usage.cacheWrite ?? 0;
-                result.usage.cost += usage.cost?.total ?? 0;
-              }
-              result.stopReason = event.message.stopReason;
-              result.errorMessage = event.message.errorMessage;
-              if (!result.model && event.message.model) result.model = event.message.model;
-            }
-            update();
-          }
-        } catch {
-          // JSON mode can include diagnostics from third-party extensions. Ignore non-events.
-        }
-      };
-      process.stdout.on("data", (chunk) => {
-        buffer += chunk.toString();
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
-        lines.forEach(parse);
-      });
-      process.stderr.on("data", (chunk) => {
-        result.stderr += chunk.toString();
-      });
-      process.on("error", (error) => {
-        result.exitCode = 1;
-        result.stderr += error.message;
-      });
-      process.on("close", (code) => {
-        if (buffer.trim()) parse(buffer);
-        result.exitCode = code ?? 1;
-        if (aborted) result.stopReason = "aborted";
-        resolve();
-      });
-      const kill = () => {
-        aborted = true;
-        process.kill("SIGTERM");
-        setTimeout(() => process.kill("SIGKILL"), 5_000).unref();
-      };
-      if (signal?.aborted) kill();
-      else signal?.addEventListener("abort", kill, { once: true });
-    });
-  } finally {
-    await fsp.rm(temp.directory, { recursive: true, force: true });
-  }
-  return result;
 }
 
 async function runLimited<T>(items: T[], callback: (item: T, index: number) => Promise<ChildResult>): Promise<ChildResult[]> {
@@ -406,7 +274,22 @@ export default function (pi: ExtensionAPI) {
         content: [{ type: "text", text: results.map((result) => `${result.agent}: ${resultText(result)}`).join("\n\n") }],
         details: { results },
       });
-      const start = (task: TaskInput, index = 0, update?: (result: ChildResult) => void) => runChild(ctx.cwd, task, agents, childModel(task, index), signal, update);
+      const start = async (task: TaskInput, index = 0, update?: (result: ChildResult) => void): Promise<ChildResult> => {
+        const agent = agents.find((candidate) => candidate.name === task.agent);
+        if (!agent) return { agent: task.agent, source: "unknown", task: task.task, exitCode: 1, messages: [], stderr: `Unknown agent ${JSON.stringify(task.agent)}.`, usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 0 } };
+        const model = childModel(task, index);
+        const event = await runSubagent(pi, agent, task.task, task.cwd ?? ctx.cwd, model, signal);
+        const result: ChildResult = {
+          agent: agent.name, source: agent.source, task: task.task, model: event.model ?? model,
+          exitCode: event.status === "completed" ? 0 : 1,
+          messages: event.messages ?? [], stderr: event.error ?? "",
+          usage: { input: event.usage?.input ?? 0, output: event.usage?.output ?? 0, cacheRead: event.usage?.cacheRead ?? 0, cacheWrite: event.usage?.cacheWrite ?? 0, cost: event.usage?.cost?.total ?? 0, turns: event.messages?.filter((message) => message.role === "assistant").length ?? 0 },
+          stopReason: event.status === "completed" ? undefined : event.status,
+          errorMessage: event.error ?? event.result,
+        };
+        update?.(result);
+        return result;
+      };
 
       if (params.chain?.length) {
         const results: ChildResult[] = [];
