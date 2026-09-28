@@ -17,11 +17,11 @@ The `pi-subagents` branch adds RPC protocol 3. It carries two capabilities the m
 - Pi CLI on `PATH`.
 - Node 22 or newer.
 - Both local checkouts on the branches named above.
-- A provider with authentication available in your real Pi directory. The test copies only `auth.json` and the command code catalog from your Pi directory into a temporary profile and deletes its copy after the run.
+- A working provider. The example uses the installed `pi-commandcode-provider`, `~/.pi/agent/auth.json`, and `~/.pi/agent/commandcode-models.json`. The test copies credentials and the catalog into a temporary profile and deletes that copy after the run.
 
 ## Run the reproducible integration test
 
-The test drives a real `pi` process against a disposable profile. It never reads or writes your personal Pi settings.
+The test drives a real `pi` process against a disposable profile. It reads authentication and provider files from your Pi directory but does not change your personal Pi settings.
 
 ```bash
 cd pi-pstack-subagents-migration
@@ -40,6 +40,7 @@ The test asserts these behaviors:
 
 - The bundled `poteto-agent` resolves without copying any file into a user or project agents directory.
 - The result keeps ordered messages in `details.results[].messages`.
+- A role configured with `provider/model:high` resolves the model and passes `high` as the child's thinking level.
 - Parallel and chain modes return their expected ordering and status.
 - A same-name project agent does not replace the bundled definition under the default scope.
 - A missing `pi-subagents` extension fails with an installation error, not a substitute agent.

@@ -43,11 +43,12 @@ export async function runSubagent(pi: ExtensionAPI, agent: AgentConfig, task: st
     const prompt = agent.name === "poteto-agent"
       ? `${task}\n\nBefore any work, use the read tool to load the canonical poteto-mode skill at ${new URL("../../skills/poteto-mode/SKILL.md", import.meta.url).pathname}.`
       : task;
+    const selector = model?.match(/^(.*):(off|minimal|low|medium|high|xhigh|max)$/);
     const reply = await rpc("spawn", {
       type: agent.name,
       prompt: `Delegated task:\n${prompt}`,
       definition: { name: agent.name, description: agent.description, systemPrompt: agent.systemPrompt, tools: agent.tools },
-      options: { description: agent.description, model, cwd, isBackground: false, signal },
+      options: { description: agent.description, model: selector ? selector[1] : model, thinkingLevel: selector?.[2], cwd, isBackground: false, signal },
     });
     if (!reply.success || !reply.data?.id) throw new Error(reply.error ?? "pi-subagents rejected the spawn.");
     ownedId = reply.data.id;

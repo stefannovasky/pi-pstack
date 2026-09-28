@@ -46,6 +46,14 @@ try {
   assert.equal(single[0].result.details.results[0].source, "bundled");
   assert(single[0].result.details.results[0].messages.some((message) => message.role === "toolResult"));
 
+  mkdirSync(join(profile, "pstack"), { recursive: true });
+  writeFileSync(join(profile, "pstack/models.json"), JSON.stringify({ version: 1, roles: { "bug-fix": `${provider}/${model}:high` } }));
+  const selected = invoke('Call subagent with agent poteto-agent, role "bug-fix", and task "Say exactly OK." Do not call Agent.');
+  assert.equal(selected.length, 1);
+  assert.equal(selected[0].isError, false, selected[0].result.content[0].text);
+  assert.equal(selected[0].result.details.results[0].exitCode, 0);
+  assert(selected[0].result.details.results[0].model.includes(model));
+
   const modes = invoke('Call subagent with tasks [{"agent":"poteto-agent","task":"Read package.json and answer only pi-pstack"},{"agent":"poteto-agent","task":"Read agents/poteto-agent.md and answer only poteto-agent"}]. Then call subagent with chain [{"agent":"poteto-agent","task":"Say only pi-pstack"},{"agent":"poteto-agent","task":"Echo exactly this: {previous}"}]. Do not call Agent.');
   assert.deepEqual(modes.map((event) => event.result.details.mode), ["parallel", "chain"]);
   assert.deepEqual(modes[0].result.details.results.map((result) => result.exitCode), [0, 0]);
@@ -71,7 +79,7 @@ try {
   assert.equal(protectedCall.length, 1);
   const childMessages = protectedCall[0].result.details.results[0].messages;
   assert(childMessages.some((message) => message.role === "toolResult" && message.toolName === "bash" && message.isError && JSON.stringify(message.content).includes("requires explicit user confirmation")), "The child must block the external-looking echo command without interactive approval.");
-  console.log("Bundled identity, transcript, parallel, chain, project collision, missing-provider, and child guard checks passed.");
+  console.log("Bundled identity, thinking-suffixed role, parallel, chain, project collision, missing-provider, and child guard checks passed.");
 } finally {
   rmSync(profile, { recursive: true, force: true });
 }
