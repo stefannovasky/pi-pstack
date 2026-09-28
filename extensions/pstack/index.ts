@@ -279,13 +279,14 @@ export default function (pi: ExtensionAPI) {
         if (!agent) return { agent: task.agent, source: "unknown", task: task.task, exitCode: 1, messages: [], stderr: `Unknown agent ${JSON.stringify(task.agent)}.`, usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 0 } };
         const model = childModel(task, index);
         const event = await runSubagent(pi, agent, task.task, task.cwd ?? ctx.cwd, model, signal);
+        const failed = event.status === "error" || event.status === "stopped" || event.status === "aborted";
         const result: ChildResult = {
           agent: agent.name, source: agent.source, task: task.task, model: event.model ?? model,
-          exitCode: event.status === "completed" ? 0 : 1,
+          exitCode: failed ? 1 : 0,
           messages: event.messages ?? [], stderr: event.error ?? "",
           usage: { input: event.usage?.input ?? 0, output: event.usage?.output ?? 0, cacheRead: event.usage?.cacheRead ?? 0, cacheWrite: event.usage?.cacheWrite ?? 0, cost: event.usage?.cost?.total ?? 0, turns: event.messages?.filter((message) => message.role === "assistant").length ?? 0 },
-          stopReason: event.status === "completed" ? undefined : event.status,
-          errorMessage: event.error ?? event.result,
+          stopReason: event.status === "error" || event.status === "aborted" ? event.status : undefined,
+          errorMessage: event.error,
         };
         update?.(result);
         return result;

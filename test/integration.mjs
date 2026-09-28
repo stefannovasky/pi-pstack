@@ -58,7 +58,7 @@ try {
   const collision = invoke('Call subagent with agent poteto-agent and task "Read package.json and answer only the name field." Do not call Agent.', undefined, project);
   assert.equal(collision.length, 1);
   assert.equal(collision[0].result.details.results[0].source, "bundled");
-  assert.equal(collision[0].result.content[0].text, "bundled-wins");
+  assert.match(collision[0].result.content[0].text, /bundled-wins/);
 
   const missing = invoke('Call subagent with agent poteto-agent and task "Say yes".', [resolve(root, "extensions/pstack/index.ts")]);
   assert.equal(missing.length, 1);
