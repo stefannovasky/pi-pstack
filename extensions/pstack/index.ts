@@ -283,7 +283,7 @@ export default function (pi: ExtensionAPI) {
           const turns = event.messages?.filter((message) => message.role === "assistant") ?? [];
           const total = (field: "input" | "output" | "cacheRead" | "cacheWrite") => turns.reduce((sum, message) => sum + (message.usage?.[field] ?? 0), 0);
           return {
-            agent: agent.name, source: agent.source, task: task.task, model: event.model ?? model,
+            agent: agent.name, source: agent.source, task: task.task, model: model ?? event.model,
             exitCode: failed ? 1 : 0,
             messages: event.messages ?? [], stderr: event.error ?? "",
             usage: { input: event.usage?.input ?? total("input"), output: event.usage?.output ?? total("output"), cacheRead: event.usage?.cacheRead ?? total("cacheRead"), cacheWrite: event.usage?.cacheWrite ?? total("cacheWrite"), cost: event.usage?.cost?.total ?? turns.reduce((sum, message) => sum + (message.usage?.cost?.total ?? 0), 0), turns: turns.length },
