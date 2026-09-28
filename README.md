@@ -4,11 +4,11 @@ A Pi-native port of [pstack](https://github.com/cursor/plugins/tree/main/pstack)
 
 ## Install
 
-This migration requires the adjacent `tintinweb/pi-subagents` checkout on branch `migration/pstack-package-agents` until its RPC protocol 3 changes are released. Both local packages must be loaded in the same Pi session. Pi does not activate one package's extension when another package loads.
+This migration requires the adjacent `tintinweb/pi-subagents` checkout on branch `migration/pstack-package-agents` until its RPC protocol 4 changes are released. Both local packages must be loaded in the same Pi session. Pi does not activate one package's extension when another package loads.
 
 To test without changing your personal Pi settings, use a disposable `PI_CODING_AGENT_DIR` with authentication and run `node pi-pstack/test/integration.mjs` from the directory containing both checkouts. The test creates and removes its own child profile. It checks package loading through temporary settings as well as direct extension loading. Loading only with `pi -e` is insufficient to verify child-session guards because explicit extensions do not automatically load in child sessions.
 
-For regular use, install and enable both local packages in Pi after reviewing them. Keep the `pi-subagents` checkout on the protocol 3 branch; an unmodified release does not support this adapter.
+For regular use, install and enable both local packages in Pi after reviewing them. Keep the `pi-subagents` checkout on the protocol 4 branch; an unmodified release does not support this adapter.
 
 ## Start
 
