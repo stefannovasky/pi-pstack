@@ -77,6 +77,7 @@ PI_CODING_AGENT_DIR="$PROFILE" \
   pi \
   --provider commandcode \
   --model deepseek/deepseek-v4-pro \
+  --extension "$HOME/.pi/agent/npm/node_modules/pi-commandcode-provider/index.ts" \
   --extension ./pi-subagents/src/index.ts \
   --extension ./pi-pstack/extensions/pstack/index.ts
 ```
@@ -84,7 +85,7 @@ PI_CODING_AGENT_DIR="$PROFILE" \
 Then ask for a delegate:
 
 ```text
-Use the subagent tool with agent poteto-agent to read package.json and report the package name.
+Use the subagent tool with agent poteto-agent to read pi-pstack/package.json and report only its package name. Do not call Agent.
 ```
 
 Loading both with `--extension` proves the delegation path. It does not prove child-session guards, because explicit `--extension` flags are not automatically inherited by child sessions. The integration test covers that by loading both packages through the temporary profile's settings.
@@ -103,6 +104,7 @@ cp ~/.pi/agent/commandcode-models.json "$PROFILE/commandcode-models.json"
 cat > "$PROFILE/settings.json" <<EOF
 {
   "packages": [
+    { "source": "$HOME/.pi/agent/npm/node_modules/pi-commandcode-provider" },
     { "source": "$PWD/pi-subagents" },
     { "source": "$PWD/pi-pstack" }
   ]
@@ -112,7 +114,7 @@ EOF
 PI_CODING_AGENT_DIR="$PROFILE" pi --provider commandcode --model deepseek/deepseek-v4-pro
 ```
 
-Your personal `~/.pi/agent/settings.json` is left alone. The profile under `/tmp` holds all changes.
+Your personal `~/.pi/agent/settings.json` is left alone. The profile under `/tmp` holds all changes. In Pi, use the `subagent` tool with agent `poteto-agent` and ask it to read `pi-pstack/package.json`. Exit with `/quit`. To remove the temporary profile and its copied credentials afterward, run `rm -rf "$PROFILE"` only while `PROFILE` still points to the directory you created with `mktemp -d`.
 
 ## Release notes
 
