@@ -4,13 +4,11 @@ A Pi-native port of [pstack](https://github.com/cursor/plugins/tree/main/pstack)
 
 ## Install
 
-Install the published package:
+This migration requires the adjacent `tintinweb/pi-subagents` checkout on branch `migration/pstack-package-agents` until its RPC protocol 3 changes are released. Both local packages must be loaded in the same Pi session. Pi does not activate one package's extension when another package loads.
 
-```bash
-pi install git:github.com/kkgogogo17/pi-pstack@v0.1.0
-```
+To test without changing your personal Pi settings, use a disposable `PI_CODING_AGENT_DIR` with authentication and run `node pi-pstack/test/integration.mjs` from the directory containing both checkouts. The test creates and removes its own child profile. It checks package loading through temporary settings as well as direct extension loading. Loading only with `pi -e` is insufficient to verify child-session guards because explicit extensions do not automatically load in child sessions.
 
-Then restart Pi. Use `pi config` to enable or disable package resources.
+For regular use, install and enable both local packages in Pi after reviewing them. Keep the `pi-subagents` checkout on the protocol 3 branch; an unmodified release does not support this adapter.
 
 ## Start
 
@@ -26,7 +24,7 @@ Then restart Pi. Use `pi config` to enable or disable package resources.
 
 ## Pi subagents
 
-The extension registers a `subagent` tool using Pi's official isolated-process pattern. A child runs as a separate `pi --mode json --print --no-session` process and returns only its final result to the parent context.
+The `subagent` tool delegates execution to `tintinweb/pi-subagents` through its versioned extension RPC. It supplies bundled agent definitions per run, so they never need to be copied into a user or project agents directory. Protocol 3 is required. A missing or older extension fails with an installation error rather than running a different agent. The result retains its final text and ordered messages in the tool details.
 
 Bundled agents:
 
@@ -53,7 +51,7 @@ This port deliberately removes Cursor-only setup and behavior:
 | sticky `mode: true` | session-persisted `/poteto-mode` extension command |
 | Cursor todo list | `pstack_todo` tool |
 | Cursor transcript directories | `$PI_SESSION_FILE` and `pstack_sessions` |
-| `/loop`, cloud-agent resume | explicit project watchers; child Pi processes are local and fresh |
+| `/loop`, cloud-agent resume | explicit project watchers; pi-subagents runs local child sessions |
 | Cursor Team Kit skills | capability detection and project-native verification tooling |
 
 The extension requests confirmation for recognizable shell commands that push, alter pull requests, merge, deploy, mutate infrastructure, or recursively delete files. In non-interactive mode it blocks these commands. This is a guardrail, not a complete shell-security sandbox. Prompts also require explicit approval for all external or irreversible actions.
