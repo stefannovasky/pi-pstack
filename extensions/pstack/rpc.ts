@@ -48,7 +48,7 @@ export async function runSubagent(pi: ExtensionAPI, agent: AgentConfig, task: st
     const reply = await rpc("spawn", {
       type: agent.name,
       prompt: `Delegated task:\n${prompt}`,
-      definition: { name: agent.name, description: agent.description, systemPrompt: agent.systemPrompt, tools: agent.tools },
+      definition: { name: agent.name, description: agent.description, systemPrompt: agent.systemPrompt, tools: agent.tools, promptMode: "append" },
       options: { description: agent.description, model: selector ? selector[1] : model, thinkingLevel: selector?.[2], cwd, isBackground: false, signal },
     });
     if (!reply.success || !reply.data?.id) throw new Error(reply.error ?? "pi-subagents rejected the spawn.");
