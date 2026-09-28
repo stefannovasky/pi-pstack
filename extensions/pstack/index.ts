@@ -293,7 +293,7 @@ export default function (pi: ExtensionAPI) {
             thinkingLevel: event.thinkingLevel,
           };
         };
-        const event = await runSubagent(pi, agent, task.task, task.cwd ?? ctx.cwd, model, signal, (progress) => {
+        const event = await runSubagent(pi, agent, task.task, task.cwd ?? ctx.cwd, task.cwd !== undefined && path.resolve(task.cwd) !== path.resolve(ctx.cwd), model, signal, (progress) => {
           if (progress.status === "running") update?.(asResult(progress));
         });
         const result = asResult(event);

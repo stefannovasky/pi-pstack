@@ -44,6 +44,7 @@ The test asserts these behaviors:
 - Parallel and chain modes return their expected ordering and status.
 - Progress updates arrive before completion for child messages.
 - A same-name project agent does not replace the bundled definition under the default scope.
+- A task with another `cwd` loads that directory's project instructions, not the parent's.
 - A missing `pi-subagents` extension fails with an installation error, not a substitute agent.
 - A child bash call that looks external is blocked without interactive approval.
 

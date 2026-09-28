@@ -6,7 +6,7 @@ type EventData = { id: string; status: string; result?: string; error?: string; 
 type Reply = { success: boolean; data?: { id?: string; version?: number }; error?: string };
 let requestSequence = 0;
 
-export async function runSubagent(pi: ExtensionAPI, agent: AgentConfig, task: string, cwd: string, model: string | undefined, signal?: AbortSignal, onUpdate?: (event: EventData) => void): Promise<EventData> {
+export async function runSubagent(pi: ExtensionAPI, agent: AgentConfig, task: string, cwd: string, contextFromCwd: boolean, model: string | undefined, signal?: AbortSignal, onUpdate?: (event: EventData) => void): Promise<EventData> {
   const events = pi.events;
   const requestId = `pstack-${process.pid}-${++requestSequence}`;
   const rpc = (method: string, payload: Record<string, unknown>, timeout = 3000): Promise<Reply> => new Promise((resolve, reject) => {
@@ -48,7 +48,7 @@ export async function runSubagent(pi: ExtensionAPI, agent: AgentConfig, task: st
     const reply = await rpc("spawn", {
       type: agent.name,
       prompt: `Delegated task:\n${prompt}`,
-      definition: { name: agent.name, description: agent.description, systemPrompt: agent.systemPrompt, tools: agent.tools, promptMode: "append" },
+      definition: { name: agent.name, description: agent.description, systemPrompt: agent.systemPrompt, tools: agent.tools, promptMode: "append", ...(contextFromCwd && { contextFromCwd: true }) },
       options: { description: agent.description, model: selector ? selector[1] : model, thinkingLevel: selector?.[2], cwd, isBackground: false, signal },
     });
     if (!reply.success || !reply.data?.id) throw new Error(reply.error ?? "pi-subagents rejected the spawn.");
