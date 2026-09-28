@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -10,11 +10,19 @@ const upstream = resolve(root, "../pi-subagents/src/index.ts");
 assert(process.env.PI_CODING_AGENT_DIR, "Set PI_CODING_AGENT_DIR to a disposable profile with authentication before running this test.");
 assert(realpathSync(process.env.PI_CODING_AGENT_DIR).startsWith(`${realpathSync(tmpdir())}${sep}`), "The integration test only accepts a disposable profile under the temporary directory.");
 assert(existsSync(upstream), "The adjacent pi-subagents checkout is required.");
+
+const commandcodeExt = resolve(homedir(), ".pi/agent/npm/node_modules/pi-commandcode-provider/index.ts");
+const commandcodeCatalog = resolve(homedir(), ".pi/agent/commandcode-models.json");
+const hasCommandcode = existsSync(commandcodeExt) && existsSync(commandcodeCatalog);
+const provider = process.env.PI_PROVIDER || (hasCommandcode ? "commandcode" : undefined);
+const model = process.env.PI_MODEL || (hasCommandcode ? "deepseek/deepseek-v4-pro" : undefined);
+
 const profile = mkdtempSync(join(process.env.PI_CODING_AGENT_DIR, "integration-"));
 
 function invoke(prompt, extensions = [upstream, resolve(root, "extensions/pstack/index.ts")], cwd = root) {
-  const model = process.env.PI_PROVIDER && process.env.PI_MODEL ? ["--provider", process.env.PI_PROVIDER, "--model", process.env.PI_MODEL] : [];
-  const run = spawnSync("pi", [...model, "--no-session", "--mode", "json", ...extensions.flatMap((extension) => ["--extension", extension]), "--print", prompt], {
+  const modelArgs = provider && model ? ["--provider", provider, "--model", model] : [];
+  const providerArgs = provider === "commandcode" ? ["--extension", commandcodeExt] : [];
+  const run = spawnSync("pi", [...modelArgs, "--no-session", "--mode", "json", ...providerArgs, ...extensions.flatMap((extension) => ["--extension", extension]), "--print", prompt], {
     cwd,
     env: { ...process.env, PI_CODING_AGENT_DIR: profile },
     encoding: "utf8",
@@ -30,6 +38,7 @@ function invoke(prompt, extensions = [upstream, resolve(root, "extensions/pstack
 
 try {
   copyFileSync(join(process.env.PI_CODING_AGENT_DIR, "auth.json"), join(profile, "auth.json"));
+  if (provider === "commandcode") copyFileSync(commandcodeCatalog, join(profile, "commandcode-models.json"));
 
   const single = invoke('Call subagent with agent poteto-agent and task "Read package.json and answer only its package name." Do not call Agent.');
   assert.equal(single.length, 1);
