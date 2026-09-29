@@ -108,8 +108,9 @@ try {
   assert(childMessages.some((message) => message.role === "toolResult" && message.toolName === "bash" && message.isError && JSON.stringify(message.content).includes("requires explicit user confirmation")), "The child must block the external-looking echo command without interactive approval.");
 
   const activeToolsFile = join(profile, "active-tools.json");
+  const rpcSpawnFile = join(profile, "rpc-spawn.json");
   const observer = join(profile, "observe-tools.mjs");
-  writeFileSync(observer, `import { writeFileSync } from "node:fs"; export default function (pi) { pi.on("before_agent_start", () => writeFileSync(${JSON.stringify(activeToolsFile)}, JSON.stringify(pi.getActiveTools()))); }\n`);
+  writeFileSync(observer, `import { writeFileSync } from "node:fs"; export default function (pi) { pi.on("before_agent_start", () => writeFileSync(${JSON.stringify(activeToolsFile)}, JSON.stringify(pi.getActiveTools()))); pi.events.on("subagents:rpc:spawn", (request) => writeFileSync(${JSON.stringify(rpcSpawnFile)}, JSON.stringify({ type: request.type, isBackground: request.options?.isBackground }))); }\n`);
   const commandPi = spawn("pi", ["--provider", provider, "--model", model, "--mode", "rpc", "--no-session", "--extension", observer], {
     cwd: root,
     env: { ...process.env, PI_CODING_AGENT_DIR: profile },
@@ -150,6 +151,7 @@ try {
   const activeTools = JSON.parse(readFileSync(activeToolsFile, "utf8"));
   assert(activeTools.includes("subagent"), "Pstack delegation tool must be available in Poteto Mode.");
   assert(!activeTools.includes("Agent"), "Agent tool must not compete with pstack delegation in Poteto Mode.");
+  assert.deepEqual(JSON.parse(readFileSync(rpcSpawnFile, "utf8")), { type: "poteto-agent", isBackground: true }, "Pstack delegates to tintinweb as a widget-visible background agent.");
   console.log("Bundled identity, thinking-suffixed role, parallel, chain, project collision, missing-provider, child guard, and Poteto Mode routing checks passed.");
 } finally {
   rmSync(profile, { recursive: true, force: true });
