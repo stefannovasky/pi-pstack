@@ -24,7 +24,9 @@ For regular use, install and enable both local packages in Pi after reviewing th
 
 ## Pi subagents
 
-The `subagent` tool delegates execution to `tintinweb/pi-subagents` through its versioned extension RPC. It supplies bundled agent definitions per run, so they never need to be copied into a user or project agents directory. Protocol 3 is required. A missing or older extension fails with an installation error rather than running a different agent. The result retains its final text and ordered messages in the tool details.
+The `subagent` tool delegates execution to `tintinweb/pi-subagents` through its versioned extension RPC. It supplies bundled agent definitions per run, so they do not need to be copied into a user or project agents directory. The tool requires protocol 4. A missing or older extension fails instead of running a different agent.
+
+While the tool waits, tintinweb's Agents widget shows the child above the prompt. The tool call remains in the conversation, with the final text and ordered messages in its details.
 
 Bundled agents:
 

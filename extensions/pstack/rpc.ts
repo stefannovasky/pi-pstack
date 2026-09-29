@@ -49,7 +49,7 @@ export async function runSubagent(pi: ExtensionAPI, agent: AgentConfig, task: st
       type: agent.name,
       prompt: `Delegated task:\n${prompt}`,
       definition: { name: agent.name, description: agent.description, systemPrompt: agent.systemPrompt, tools: agent.tools, promptMode: "append", ...(contextFromCwd && { contextFromCwd: true }) },
-      options: { description: agent.description, model: selector ? selector[1] : model, thinkingLevel: selector?.[2], cwd, isBackground: false, signal },
+      options: { description: agent.description, model: selector ? selector[1] : model, thinkingLevel: selector?.[2], cwd, isBackground: true, signal },
     });
     if (!reply.success || !reply.data?.id) throw new Error(reply.error ?? "pi-subagents rejected the spawn.");
     ownedId = reply.data.id;
