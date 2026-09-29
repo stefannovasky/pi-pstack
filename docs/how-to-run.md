@@ -10,7 +10,7 @@ pi-pstack-subagents-migration/
 └── pi-subagents/  branch migration/pstack-package-agents
 ```
 
-The `pi-subagents` branch adds RPC protocol 4. It carries spawn-local agent definitions, ordered messages on completion events, and per-message progress events. The `pi-pstack` branch replaces its subprocess runner with an adapter over that protocol.
+The `pi-subagents` branch adds RPC protocol 4. It carries spawn-local agent definitions, ordered messages on completion events, and per-message progress events. The `pi-pstack` branch replaces its subprocess runner with an adapter over that protocol. The model calls pstack's `subagent` tool; pstack sends `subagents:rpc:spawn` to tintinweb. Seeing `subagent` rather than tintinweb's model-facing `Agent` tool is expected.
 
 ## Requirements
 
@@ -115,6 +115,8 @@ EOF
 
 PI_CODING_AGENT_DIR="$PROFILE" pi --provider commandcode --model deepseek/deepseek-v4-pro
 ```
+
+Before starting Pi, run `PI_CODING_AGENT_DIR="$PROFILE" pi list`. It must list the local paths ending in `pi-pstack` and `pi-subagents`. If it lists `git:github.com/kkgogogo17/pi-pstack` or `npm:@tintinweb/pi-subagents` instead, the disposable profile was not applied. An empty `PROFILE` variable also makes Pi fall back to your personal installation.
 
 Your personal `~/.pi/agent/settings.json` is left alone. The profile under `/tmp` holds all changes. In Pi, enter `/poteto-mode` to enable the workflow, or `/skill:arena` to invoke a specific skill. Then use the `subagent` tool with agent `poteto-agent` and ask it to read `pi-pstack/package.json`. Exit with `/quit`. To remove the temporary profile and its copied credentials afterward, run `rm -rf "$PROFILE"` only while `PROFILE` still points to the directory you created with `mktemp -d`.
 
