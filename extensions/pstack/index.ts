@@ -114,7 +114,20 @@ function knownExternalWrite(command: string): string | undefined {
 
 export default function (pi: ExtensionAPI) {
   let potetoMode = false;
+  let agentWasActive = false;
   let todos: string[] = [];
+  const usePstackDelegation = () => {
+    const tools = pi.getActiveTools();
+    if (!tools.includes("Agent")) return;
+    agentWasActive = true;
+    pi.setActiveTools(tools.filter((tool) => tool !== "Agent"));
+  };
+  const restoreAgent = () => {
+    if (!agentWasActive) return;
+    const tools = pi.getActiveTools();
+    if (!tools.includes("Agent")) pi.setActiveTools([...tools, "Agent"]);
+    agentWasActive = false;
+  };
 
   pi.on("session_start", (_event, ctx) => {
     potetoMode = false;
@@ -127,6 +140,8 @@ export default function (pi: ExtensionAPI) {
         if (Array.isArray(items) && items.every((item) => typeof item === "string")) todos = items;
       }
     }
+    if (potetoMode) usePstackDelegation();
+    else restoreAgent();
     if (ctx.mode === "tui") ctx.ui.setStatus("pstack-mode", potetoMode ? "pstack: poteto mode" : undefined);
   });
 
@@ -134,6 +149,7 @@ export default function (pi: ExtensionAPI) {
     if (/^\/skill:poteto-mode(?:\s|$)/.test(event.text)) {
       potetoMode = true;
       pi.appendEntry(MODE_ENTRY, { enabled: true });
+      usePstackDelegation();
     }
     return { action: "continue" } as const;
   });
@@ -161,12 +177,14 @@ export default function (pi: ExtensionAPI) {
       if (/^(off|disable|stop)$/i.test(args.trim())) {
         potetoMode = false;
         pi.appendEntry(MODE_ENTRY, { enabled: false });
+        restoreAgent();
         ctx.ui.setStatus("pstack-mode", undefined);
         ctx.ui.notify("Poteto Mode disabled for this session.", "info");
         return;
       }
       potetoMode = true;
       pi.appendEntry(MODE_ENTRY, { enabled: true });
+      usePstackDelegation();
       ctx.ui.setStatus("pstack-mode", "pstack: poteto mode");
       pi.sendUserMessage(`/skill:poteto-mode${args.trim() ? ` ${args.trim()}` : ""}`, { expandPromptTemplates: true });
     },

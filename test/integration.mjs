@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { spawn, spawnSync } from "node:child_process";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -101,12 +101,56 @@ try {
   assert.match(stale[0].result.content[0].text, /RPC protocol 4/);
 
   const command = ["echo", "git", "push"].join(" ");
-  writeFileSync(join(profile, "settings.json"), JSON.stringify({ packages: [{ source: resolve(root, "../pi-subagents") }, { source: root }] }));
+  writeFileSync(join(profile, "settings.json"), JSON.stringify({ packages: [...(provider === "commandcode" ? [{ source: resolve(commandcodeExt, "..") }] : []), { source: resolve(root, "../pi-subagents") }, { source: root }] }));
   const protectedCall = invoke(`Call subagent with agent poteto-agent and task "Use bash once with the exact command ${command}. Report the tool result." Do not call bash yourself.`, []);
   assert.equal(protectedCall.length, 1);
   const childMessages = protectedCall[0].result.details.results[0].messages;
   assert(childMessages.some((message) => message.role === "toolResult" && message.toolName === "bash" && message.isError && JSON.stringify(message.content).includes("requires explicit user confirmation")), "The child must block the external-looking echo command without interactive approval.");
-  console.log("Bundled identity, thinking-suffixed role, parallel, chain, project collision, missing-provider, and child guard checks passed.");
+
+  const activeToolsFile = join(profile, "active-tools.json");
+  const observer = join(profile, "observe-tools.mjs");
+  writeFileSync(observer, `import { writeFileSync } from "node:fs"; export default function (pi) { pi.on("before_agent_start", () => writeFileSync(${JSON.stringify(activeToolsFile)}, JSON.stringify(pi.getActiveTools()))); }\n`);
+  const commandPi = spawn("pi", ["--provider", provider, "--model", model, "--mode", "rpc", "--no-session", "--extension", observer], {
+    cwd: root,
+    env: { ...process.env, PI_CODING_AGENT_DIR: profile },
+  });
+  try {
+    await new Promise((resolve, reject) => {
+      let output = "";
+      let expanded = false;
+      const timeout = setTimeout(() => reject(new Error("Poteto Mode did not delegate through pstack.")), 180_000);
+      commandPi.stdout.on("data", (chunk) => {
+        output += chunk.toString();
+        const lines = output.split("\n");
+        output = lines.pop() ?? "";
+        for (const line of lines) {
+          let event;
+          try { event = JSON.parse(line); } catch { continue; }
+          if (event.type === "extension_error") { clearTimeout(timeout); reject(new Error(event.error)); }
+          if (event.type === "message_start" && event.message?.role === "user" && JSON.stringify(event.message.content).includes('<skill name=\\"poteto-mode\\"')) expanded = true;
+          if (event.type === "tool_execution_end" && (event.toolName === "subagent" || event.toolName === "Agent")) {
+            clearTimeout(timeout);
+            try {
+              assert(expanded, "Poteto Mode skill was not expanded.");
+              assert.equal(event.toolName, "subagent", "Poteto Mode used the wrong delegation tool.");
+              assert.equal(event.result.details.results[0].source, "bundled");
+              resolve();
+            } catch (error) { reject(error); }
+          }
+          if (event.type === "agent_end" && !expanded) { clearTimeout(timeout); reject(new Error("Poteto Mode command did not expand its skill.")); }
+        }
+      });
+      commandPi.on("error", (error) => { clearTimeout(timeout); reject(error); });
+      commandPi.stdin.write(`${JSON.stringify({ type: "prompt", message: '/poteto-mode Use the subagent tool with agent poteto-agent to read pi-pstack/package.json and report only its package name. Do not call Agent.' })}\n`);
+    });
+  } finally {
+    commandPi.kill();
+    if (commandPi.exitCode === null) await new Promise((resolve) => commandPi.once("close", resolve));
+  }
+  const activeTools = JSON.parse(readFileSync(activeToolsFile, "utf8"));
+  assert(activeTools.includes("subagent"), "Pstack delegation tool must be available in Poteto Mode.");
+  assert(!activeTools.includes("Agent"), "Agent tool must not compete with pstack delegation in Poteto Mode.");
+  console.log("Bundled identity, thinking-suffixed role, parallel, chain, project collision, missing-provider, child guard, and Poteto Mode routing checks passed.");
 } finally {
   rmSync(profile, { recursive: true, force: true });
 }

@@ -82,7 +82,7 @@ PI_CODING_AGENT_DIR="$PROFILE" \
   --extension ./pi-pstack/extensions/pstack/index.ts
 ```
 
-The pstack workflow skills are present, but most are explicit-only. They do not appear in the model's automatic skill list. Enter `/skill:arena` to invoke that skill directly. Enter `/poteto-mode` to enable sticky Poteto Mode for the current Pi session. A fresh disposable profile starts with this mode off.
+The pstack workflow skills are present, but most are explicit-only. They do not appear in the model's automatic skill list. Enter `/skill:arena` to invoke that skill directly. Enter `/poteto-mode` to enable sticky Poteto Mode for the current Pi session. While enabled, Pi exposes pstack's `subagent` tool instead of pi-subagents' model-facing `Agent` tool. `/poteto-mode off` restores `Agent`. A fresh disposable profile starts with this mode off.
 
 Then ask for a delegate:
 
