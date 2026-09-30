@@ -26,6 +26,8 @@ For regular use, install and enable both local packages in Pi after reviewing th
 
 The `subagent` tool delegates execution to `tintinweb/pi-subagents` through its versioned extension RPC. It supplies bundled agent definitions per run, so they do not need to be copied into a user or project agents directory. The tool requires protocol 4. A missing or older extension fails instead of running a different agent.
 
+The availability ping has a three-second timeout. Each task has a 30-minute deadline that includes startup, queue wait, and execution. Cancellation and deadline expiry abort the child, including while its spawn reply is pending. The adapter removes its event listeners and timers when the task settles.
+
 While the tool waits, tintinweb's Agents widget shows the child above the prompt. The tool call remains in the conversation, with the final text and ordered messages in its details.
 
 Bundled agents:
