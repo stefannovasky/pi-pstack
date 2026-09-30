@@ -1,5 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { copyFileSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { runSubagent } from "../extensions/pstack/rpc.ts";
 
 function bus() {
@@ -145,6 +149,27 @@ test("early and interleaved completion, duplicate events, and throwing callbacks
   offPing(); offSpawn();
   assert.equal(events.count(), 0);
   t.mock.timers.tick(30 * 60 * 1000);
+});
+
+test("the canonical skill path remains readable when the package path contains spaces", async (t) => {
+  const directory = mkdtempSync(join(tmpdir(), "pstack url "));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  const modulePath = join(directory, "extensions/pstack/rpc.ts");
+  mkdirSync(dirname(modulePath), { recursive: true });
+  copyFileSync(new URL("../extensions/pstack/rpc.ts", import.meta.url), modulePath);
+  const relocated = await import(pathToFileURL(modulePath).href);
+  const events = bus();
+  let spawn;
+  const offPing = events.on("subagents:rpc:ping", request => reply(events, "ping", request, { success: true, data: { version: 4 } }));
+  const offSpawn = events.on("subagents:rpc:spawn", request => {
+    spawn = request;
+    events.emit("subagents:completed", { id: "relocated", status: "completed" });
+    reply(events, "spawn", request, { success: true, data: { id: "relocated" } });
+  });
+  await relocated.runSubagent({ events }, { ...agent, name: "poteto-agent" }, "task", process.cwd(), false, undefined);
+  assert.ok(spawn.prompt.includes(join(directory, "skills/poteto-mode/SKILL.md")));
+  offPing(); offSpawn();
+  assert.equal(events.count(), 0);
 });
 
 for (const mode of ["success", "failure", "abort", "deadline", "missing"]) test(`no abandoned timers or listeners after ${mode}`, async (t) => {

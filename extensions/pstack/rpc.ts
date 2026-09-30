@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { Message } from "@earendil-works/pi-ai";
 import type { AgentConfig } from "./agents.ts";
@@ -79,7 +80,7 @@ export async function runSubagent(pi: ExtensionAPI, agent: AgentConfig, task: st
       if (!terminal && !controller.signal.aborted) update(raw as EventData);
     });
     const prompt = agent.name === "poteto-agent"
-      ? `${task}\n\nBefore any work, use the read tool to load the canonical poteto-mode skill at ${new URL("../../skills/poteto-mode/SKILL.md", import.meta.url).pathname}.`
+      ? `${task}\n\nBefore any work, use the read tool to load the canonical poteto-mode skill at ${fileURLToPath(new URL("../../skills/poteto-mode/SKILL.md", import.meta.url))}.`
       : task;
     const selector = model?.match(/^(.*):(off|minimal|low|medium|high|xhigh|max)$/);
     const reply = await rpc("spawn", {
