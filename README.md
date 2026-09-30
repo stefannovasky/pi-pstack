@@ -37,6 +37,8 @@ Bundled agents:
 
 The tool supports a single task, `tasks` for parallel work, and `chain` for sequential work with `{previous}` interpolation. It accepts `role` for the model configuration and `model` for a one-off `provider/model` override. It permits at most eight tasks and runs at most four concurrently. Parallel mode waits for all tasks and returns individual failures without discarding successful siblings. Single mode and chains fail on the first failed task.
 
+`cwd` accepts an absolute path or a path relative to the parent session's working directory. If the directory changes, the child loads that directory's project instructions and skills. Extension loading stays with the parent project's configuration, so extensions from the target directory do not execute in the shared process.
+
 It also honors Pi's subagent definition locations:
 
 - `~/.pi/agent/agents/*.md` for user agents.

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
-import { join, resolve, sep } from "node:path";
+import { join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
@@ -80,7 +80,7 @@ try {
   const extensionMarker = join(childContext, "extension-loaded");
   mkdirSync(join(childContext, ".pi/extensions"), { recursive: true });
   writeFileSync(join(childContext, ".pi/extensions/marker.mjs"), `import { writeFileSync } from "node:fs"; export default function () { writeFileSync(${JSON.stringify(extensionMarker)}, "loaded"); }\n`);
-  const contextCall = invoke(`Call subagent with agent comment-sicko, cwd ${JSON.stringify(childContext)}, and task "Say OK." Do not call Agent.`, undefined, parentContext);
+  const contextCall = invoke(`Call subagent with agent comment-sicko, cwd ${JSON.stringify(relative(parentContext, childContext))}, and task "Say OK." Do not call Agent.`, undefined, parentContext);
   assert.equal(contextCall.length, 1);
   const systemMessage = JSON.stringify(contextCall[0].result.details.results[0].messages.find((message) => message.role === "system"));
   assert(systemMessage.includes("CHILD_CONTEXT_MARKER"), "Child instructions must come from task.cwd.");

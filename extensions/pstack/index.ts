@@ -18,7 +18,7 @@ const Task = Type.Object({
   task: Type.String({ description: "Self-contained delegated task. Point to files instead of inlining large payloads." }),
   model: Type.Optional(Type.String({ description: "Pi model selector (provider/model). Overrides the role configuration." })),
   role: Type.Optional(Type.String({ description: "pstack model role configured by /setup-pstack." })),
-  cwd: Type.Optional(Type.String({ description: "Working directory for this child Pi process." })),
+  cwd: Type.Optional(Type.String({ description: "Working directory for this child Pi session. Relative paths resolve from the parent session's cwd." })),
 });
 
 const SubagentParams = Type.Object({
@@ -315,9 +315,10 @@ export default function (pi: ExtensionAPI) {
             thinkingLevel: event.thinkingLevel,
           };
         };
+        const cwd = path.resolve(ctx.cwd, task.cwd ?? ".");
         let event: Awaited<ReturnType<typeof runSubagent>>;
         try {
-          event = await runSubagent(pi, agent, task.task, task.cwd ?? ctx.cwd, task.cwd !== undefined && path.resolve(task.cwd) !== path.resolve(ctx.cwd), model, signal, (progress) => {
+          event = await runSubagent(pi, agent, task.task, cwd, cwd !== path.resolve(ctx.cwd), model, signal, (progress) => {
             if (progress.status === "running") update?.(asResult(progress));
           });
         } catch (error) {

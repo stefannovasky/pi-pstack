@@ -1,8 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { mkdtempSync, mkdirSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import extension from "../extensions/pstack/index.ts";
 
-function setup() {
+function setup(cwd = process.cwd()) {
   const listeners = new Map();
   const events = {
     on(name, fn) {
@@ -16,7 +19,7 @@ function setup() {
   let tool;
   extension({ events, on() {}, registerCommand() {}, registerTool(value) { if (value.name === "subagent") tool = value; } });
   events.on("subagents:rpc:ping", ({ requestId }) => events.emit(`subagents:rpc:ping:reply:${requestId}`, { success: true, data: { version: 4 } }));
-  return { events, execute: (params, onUpdate) => tool.execute("test", params, undefined, onUpdate, { cwd: process.cwd(), hasUI: false }) };
+  return { events, execute: (params, onUpdate) => tool.execute("test", params, undefined, onUpdate, { cwd, hasUI: false }) };
 }
 const flush = async () => { for (let i = 0; i < 30; i++) await new Promise(resolve => setImmediate(resolve)); };
 const task = index => ({ agent: "poteto-agent", task: `task-${index}` });
@@ -78,4 +81,24 @@ test("throwing progress callbacks cannot discard parallel outcomes", async () =>
   const result = await execute({ tasks: [task(0), task(1)] }, () => { throw new Error("progress callback"); });
   assert.deepEqual(result.details.results.map(result => result.exitCode), [0, 0]);
   assert.equal(spawned, 2);
+});
+
+test("relative task cwd resolves against the parent session, not process.cwd", async (t) => {
+  const parent = mkdtempSync(join(tmpdir(), "pstack-cwd-"));
+  t.after(() => rmSync(parent, { recursive: true, force: true }));
+  const child = join(parent, "child");
+  mkdirSync(child);
+  const { events, execute } = setup(parent);
+  const spawns = [];
+  events.on("subagents:rpc:spawn", request => {
+    spawns.push(request);
+    const id = `cwd-${spawns.length}`;
+    events.emit("subagents:completed", { id, status: "completed", messages: [] });
+    events.emit(`subagents:rpc:spawn:reply:${request.requestId}`, { success: true, data: { id } });
+  });
+  for (const cwd of ["child", child, ".", undefined]) {
+    await execute({ ...task(0), cwd });
+  }
+  assert.deepEqual(spawns.map(request => request.options.cwd), [child, child, parent, parent]);
+  assert.deepEqual(spawns.map(request => request.definition.contextFromCwd), [true, true, undefined, undefined]);
 });
