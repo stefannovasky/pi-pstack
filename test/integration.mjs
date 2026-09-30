@@ -16,6 +16,7 @@ const commandcodeCatalog = resolve(homedir(), ".pi/agent/commandcode-models.json
 const hasCommandcode = existsSync(commandcodeExt) && existsSync(commandcodeCatalog);
 const provider = process.env.PI_PROVIDER || (hasCommandcode ? "commandcode" : undefined);
 const model = process.env.PI_MODEL || (hasCommandcode ? "deepseek/deepseek-v4-pro" : undefined);
+assert(provider && model, "Set PI_PROVIDER and PI_MODEL to an authenticated model available in Pi, or install the Commandcode provider and catalog.");
 
 const profile = mkdtempSync(join(process.env.PI_CODING_AGENT_DIR, "integration-"));
 
@@ -70,6 +71,10 @@ try {
   assert.equal(collision.length, 1);
   assert.equal(collision[0].result.details.results[0].source, "bundled");
   assert.match(collision[0].result.content[0].text, /bundled-wins/);
+  const unapproved = invoke('Call subagent exactly once with agent poteto-agent, agentScope "project", and task "Say OK". Do not set confirmProjectAgents to false. Do not call Agent.', undefined, project);
+  assert.equal(unapproved.length, 1);
+  assert.equal(unapproved[0].isError, true);
+  assert.match(unapproved[0].result.content[0].text, /Project-local agents require confirmation/);
 
   const parentContext = mkdtempSync(join(profile, "parent-"));
   const childContext = mkdtempSync(join(profile, "child-"));
@@ -152,7 +157,7 @@ try {
   assert(activeTools.includes("subagent"), "Pstack delegation tool must be available in Poteto Mode.");
   assert(!activeTools.includes("Agent"), "Agent tool must not compete with pstack delegation in Poteto Mode.");
   assert.deepEqual(JSON.parse(readFileSync(rpcSpawnFile, "utf8")), { type: "poteto-agent", isBackground: true }, "Pstack delegates to tintinweb as a widget-visible background agent.");
-  console.log("Bundled identity, thinking-suffixed role, parallel, chain, project collision, missing-provider, child guard, and Poteto Mode routing checks passed.");
+  console.log("Bundled identity, thinking-suffixed role, progress, parallel, chain, project collision and confirmation, relative cwd context and skills, target extension exclusion, missing and stale backends, child guard, and Poteto Mode routing checks passed.");
 } finally {
   rmSync(profile, { recursive: true, force: true });
 }

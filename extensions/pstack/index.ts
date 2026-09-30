@@ -279,10 +279,11 @@ export default function (pi: ExtensionAPI) {
       const requested = params.agent ? [{ agent: params.agent, task: params.task ?? "", model: params.model, role: params.role, cwd: params.cwd }] : undefined;
       const modes = Number(Boolean(requested && params.task)) + Number(Boolean(params.tasks?.length)) + Number(Boolean(params.chain?.length));
       if (modes !== 1) throw new Error("Provide exactly one mode: agent + task, tasks, or chain.");
-      if ((scope === "project" || scope === "both") && params.confirmProjectAgents !== false && ctx.hasUI) {
+      if ((scope === "project" || scope === "both") && params.confirmProjectAgents !== false) {
         const names = [...(requested ?? []), ...(params.tasks ?? []), ...(params.chain ?? [])].map((task) => task.agent);
         const project = agents.filter((agent) => agent.source === "project" && names.includes(agent.name));
         if (project.length) {
+          if (!ctx.hasUI) throw new Error("Project-local agents require confirmation. Review their definitions and set confirmProjectAgents: false to opt in without a UI.");
           const approved = await ctx.ui.confirm("Run project-local Pi agents?", `Agents: ${project.map((agent) => agent.name).join(", ")}\nSource: ${projectAgentsDirectory(ctx.cwd)}`);
           if (!approved) throw new Error("Project-local agents were not approved.");
         }

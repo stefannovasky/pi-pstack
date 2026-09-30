@@ -1,11 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import extension from "../extensions/pstack/index.ts";
 
-function setup(cwd = process.cwd()) {
+function setup(cwd = process.cwd(), context = {}) {
   const listeners = new Map();
   const events = {
     on(name, fn) {
@@ -19,7 +19,7 @@ function setup(cwd = process.cwd()) {
   let tool;
   extension({ events, on() {}, registerCommand() {}, registerTool(value) { if (value.name === "subagent") tool = value; } });
   events.on("subagents:rpc:ping", ({ requestId }) => events.emit(`subagents:rpc:ping:reply:${requestId}`, { success: true, data: { version: 4 } }));
-  return { events, execute: (params, onUpdate) => tool.execute("test", params, undefined, onUpdate, { cwd, hasUI: false }) };
+  return { events, execute: (params, onUpdate) => tool.execute("test", params, undefined, onUpdate, { cwd, hasUI: false, ...context }) };
 }
 const flush = async () => { for (let i = 0; i < 30; i++) await new Promise(resolve => setImmediate(resolve)); };
 const task = index => ({ agent: "poteto-agent", task: `task-${index}` });
@@ -101,4 +101,30 @@ test("relative task cwd resolves against the parent session, not process.cwd", a
   }
   assert.deepEqual(spawns.map(request => request.options.cwd), [child, child, parent, parent]);
   assert.deepEqual(spawns.map(request => request.definition.contextFromCwd), [true, true, undefined, undefined]);
+});
+
+for (const approval of ["unavailable", "declined", "explicit"]) test(`project agent confirmation ${approval}`, async (t) => {
+  const project = mkdtempSync(join(tmpdir(), "pstack-project-agent-"));
+  t.after(() => rmSync(project, { recursive: true, force: true }));
+  const directory = join(project, ".pi/agents");
+  mkdirSync(directory, { recursive: true });
+  writeFileSync(join(directory, "project-only.md"), "---\nname: project-only\ndescription: Local agent\n---\nSay OK.\n");
+  const { events, execute } = setup(project, approval === "declined" ? { hasUI: true, ui: { confirm: async () => false } } : {});
+  let spawned = 0;
+  events.on("subagents:rpc:spawn", request => {
+    spawned++;
+    events.emit("subagents:completed", { id: "project-child", status: "completed" });
+    events.emit(`subagents:rpc:spawn:reply:${request.requestId}`, { success: true, data: { id: "project-child" } });
+  });
+  const params = { agent: "project-only", task: "task", agentScope: "project", ...(approval === "explicit" && { confirmProjectAgents: false }) };
+  if (approval === "explicit") {
+    const result = await execute(params);
+    assert.equal(result.details.results[0].source, "project");
+    assert.equal(spawned, 1);
+  } else {
+    const outcome = await execute(params).catch(error => error);
+    assert.ok(outcome instanceof Error);
+    assert.match(outcome.message, /Project-local agents/);
+    assert.equal(spawned, 0);
+  }
 });
