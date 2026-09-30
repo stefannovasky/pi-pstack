@@ -289,10 +289,14 @@ export default function (pi: ExtensionAPI) {
       }
       const config = await readConfig();
       const childModel = (task: TaskInput, index = 0) => task.model ?? modelsForRole(config, task.role)[index % Math.max(modelsForRole(config, task.role).length, 1)] ?? (ctx.model ? `${ctx.model.provider}/${ctx.model.id}` : undefined);
-      const makeUpdate = (results: ChildResult[]) => onUpdate?.({
-        content: [{ type: "text", text: results.map((result) => `${result.agent}: ${resultText(result)}`).join("\n\n") }],
-        details: { results },
-      });
+      const makeUpdate = (results: ChildResult[]) => {
+        try {
+          onUpdate?.({
+            content: [{ type: "text", text: results.map((result) => `${result.agent}: ${resultText(result)}`).join("\n\n") }],
+            details: { results },
+          });
+        } catch {}
+      };
       const start = async (task: TaskInput, index = 0, update?: (result: ChildResult) => void): Promise<ChildResult> => {
         const agent = agents.find((candidate) => candidate.name === task.agent);
         if (!agent) return { agent: task.agent, source: "unknown", task: task.task, exitCode: 1, messages: [], stderr: `Unknown agent ${JSON.stringify(task.agent)}. Available agents: ${agents.map((item) => item.name).join(", ") || "none"}.`, usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 0 } };
@@ -311,9 +315,14 @@ export default function (pi: ExtensionAPI) {
             thinkingLevel: event.thinkingLevel,
           };
         };
-        const event = await runSubagent(pi, agent, task.task, task.cwd ?? ctx.cwd, task.cwd !== undefined && path.resolve(task.cwd) !== path.resolve(ctx.cwd), model, signal, (progress) => {
-          if (progress.status === "running") update?.(asResult(progress));
-        });
+        let event: Awaited<ReturnType<typeof runSubagent>>;
+        try {
+          event = await runSubagent(pi, agent, task.task, task.cwd ?? ctx.cwd, task.cwd !== undefined && path.resolve(task.cwd) !== path.resolve(ctx.cwd), model, signal, (progress) => {
+            if (progress.status === "running") update?.(asResult(progress));
+          });
+        } catch (error) {
+          event = { id: "", status: "error", error: error instanceof Error ? error.message : String(error) };
+        }
         const result = asResult(event);
         update?.(result);
         return result;
