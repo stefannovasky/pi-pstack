@@ -237,7 +237,7 @@ export default function (pi: ExtensionAPI) {
     parameters: Type.Object({ action: StringEnum(["list"] as const) }),
     async execute(_id, _params, _signal, _update, ctx) {
       const sessions = await SessionManager.list(ctx.cwd);
-      const files = sessions.map((session) => session.file);
+      const files = sessions.map((session) => session.path);
       return { content: [{ type: "text", text: files.join("\n") || "No saved sessions for this working directory." }], details: { files } };
     },
   });
