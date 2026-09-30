@@ -4,11 +4,18 @@ A Pi-native port of [pstack](https://github.com/cursor/plugins/tree/main/pstack)
 
 ## Install
 
-This migration requires the adjacent `tintinweb/pi-subagents` checkout on branch `migration/pstack-package-agents` until its RPC protocol 4 changes are released. Both local packages must be loaded in the same Pi session. Pi does not activate one package's extension when another package loads.
+Use a `tintinweb/pi-subagents` checkout with RPC protocol 4. Until those changes ship upstream, use the `migration/pstack-package-agents` branch. The unmodified `0.19.0` release is insufficient. Both packages must load in the same Pi session; Pi does not activate one package's extension when another package loads.
 
-To test without changing your personal Pi settings, use a disposable `PI_CODING_AGENT_DIR` with authentication and run `node pi-pstack/test/integration.mjs` from the directory containing both checkouts. The test creates and removes its own child profile. It checks package loading through temporary settings as well as direct extension loading. Loading only with `pi -e` is insufficient to verify child-session guards because explicit extensions do not automatically load in child sessions.
+For a disposable profile that leaves personal settings unchanged, follow [Run and test the integration](docs/how-to-run.md). That guide also covers deterministic tests, live-provider verification, and manual testing.
 
-For regular use, install and enable both local packages in Pi after reviewing them. Keep the `pi-subagents` checkout on the protocol 4 branch; an unmodified release does not support this adapter.
+For regular use, review both local checkouts first. The following commands modify your personal Pi settings. Run them from the directory containing both checkouts:
+
+```bash
+pi install ./pi-subagents
+pi install ./pi-pstack
+```
+
+Loading extension entry-point files with `pi -e` alone does not install pstack's skills or prove child-session guards. Register both packages in settings for the complete integration.
 
 ## Start
 
@@ -44,7 +51,9 @@ It also honors Pi's subagent definition locations:
 - `~/.pi/agent/agents/*.md` for user agents.
 - `.pi/agents/*.md` for project agents, only with `agentScope: "project"` or `"both"`.
 
-Bundled agents are the default. Project agents require interactive approval unless `confirmProjectAgents: false` is explicit.
+Bundled agents are the default. Project agents require interactive approval unless `confirmProjectAgents: false` is explicit. Non-interactive sessions reject matching project agents when confirmation is required. Review their definitions before opting out.
+
+Bundled agents use all built-in tools when their definition omits `tools`. A built-in allowlist narrows those tools, not loaded extension tools. Spawn-local sessions stay in memory regardless of the backend's `rememberAgents` setting. Transcript messages remain in the result details and the backend's in-memory record.
 
 ## Safety and compatibility
 

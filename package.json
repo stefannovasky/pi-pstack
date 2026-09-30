@@ -2,21 +2,22 @@
   "name": "pi-pstack",
   "version": "0.1.0",
   "type": "module",
+  "engines": { "node": ">=22.20.0" },
   "description": "Pi-native port of Cursor pstack skills, sticky Poteto Mode, and tintinweb/pi-subagents delegation.",
   "license": "MIT",
   "keywords": ["pi-package", "pi", "skills", "subagent", "pstack"],
-  "files": ["extensions", "skills", "agents", "README.md", "LICENSE"],
+  "files": ["extensions", "skills", "agents", "docs", "README.md", "LICENSE"],
   "pi": {
     "extensions": ["./extensions/pstack/index.ts"],
     "skills": ["./skills"]
   },
   "scripts": {
     "test": "node --experimental-strip-types --test test/*.test.mjs",
-    "typecheck": "tsc --noEmit --allowImportingTsExtensions --module esnext --moduleResolution bundler --target es2022 --skipLibCheck extensions/pstack/*.ts"
+    "typecheck": "tsc --noEmit --strict --allowImportingTsExtensions --module esnext --moduleResolution bundler --target es2022 --skipLibCheck extensions/pstack/*.ts"
   },
   "devDependencies": {
-    "@earendil-works/pi-ai": "0.84.2",
-    "@earendil-works/pi-coding-agent": "0.84.2",
+    "@earendil-works/pi-ai": "0.86.0",
+    "@earendil-works/pi-coding-agent": "0.86.0",
     "@types/node": "^22.0.0",
     "typebox": "^1.0.0",
     "typescript": "^5.9.0"

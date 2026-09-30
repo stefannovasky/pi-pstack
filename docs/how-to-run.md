@@ -1,125 +1,115 @@
-# How to run the pi-subagents migration
+# Run and test the pi-subagents integration
 
-This migration moves `pi-pstack` delegation off its private child-process runner and onto the `tintinweb/pi-subagents` extension RPC. Two checkouts are involved. Neither is pushed. No user Pi configuration is changed by these steps.
+This guide is for contributors testing local `pi-pstack` and `pi-subagents` checkouts. It uses disposable Pi profiles without changing personal settings.
 
-## Layout
+## Prepare the checkouts
+
+Use this directory layout:
 
 ```text
 pi-pstack-subagents-migration/
-├── pi-pstack/     branch migration/tintinweb-subagents
-└── pi-subagents/  branch migration/pstack-package-agents
+├── pi-pstack/
+└── pi-subagents/
 ```
 
-The `pi-subagents` branch adds RPC protocol 4. It carries spawn-local agent definitions, ordered messages on completion events, and per-message progress events. The `pi-pstack` branch replaces its subprocess runner with an adapter over that protocol. The model calls pstack's `subagent` tool; pstack sends `subagents:rpc:spawn` to tintinweb. Seeing `subagent` rather than tintinweb's model-facing `Agent` tool is expected.
-
-## Requirements
+Requirements:
 
 - Pi CLI on `PATH`.
-- Node 22 or newer.
-- Both local checkouts on the branches named above.
-- A working provider. The example uses the installed `pi-commandcode-provider`, `~/.pi/agent/auth.json`, and `~/.pi/agent/commandcode-models.json`. The test copies credentials and the catalog into a temporary profile and deletes that copy after the run.
+- Node 22.20 or newer for the checked-in dependency lockfile and deterministic tests.
+- A `pi-subagents` checkout with RPC protocol 4. The unmodified `0.19.0` release does not include the migration's RPC additions.
+- Authentication for a model available in Pi, for the live integration test.
 
-## Run the reproducible integration test
-
-The test drives a real `pi` process against a disposable profile. It reads authentication and provider files from your Pi directory but does not change your personal Pi settings.
+From the directory containing both checkouts, install their development dependencies:
 
 ```bash
-cd pi-pstack-subagents-migration
-
-PROFILE=$(mktemp -d)
-cp ~/.pi/agent/auth.json "$PROFILE/auth.json"
-cp ~/.pi/agent/commandcode-models.json "$PROFILE/commandcode-models.json"
-
-PI_CODING_AGENT_DIR="$PROFILE" \
-  PI_PROVIDER=commandcode \
-  PI_MODEL=deepseek/deepseek-v4-pro \
-  node pi-pstack/test/integration.mjs
+npm ci --prefix pi-subagents
+npm ci --prefix pi-pstack
 ```
 
-The test asserts these behaviors:
+## Run deterministic checks
 
-- The bundled `poteto-agent` resolves without copying any file into a user or project agents directory.
-- The result keeps ordered messages in `details.results[].messages`.
-- A role configured with `provider/model:high` resolves the model and reports the child's effective thinking level as `high`.
-- Parallel and chain modes return their expected ordering and status.
-- Progress updates arrive before completion for child messages.
-- A same-name project agent does not replace the bundled definition under the default scope.
-- A task with another `cwd` loads that directory's project instructions and skills, not the parent's.
-- A missing `pi-subagents` extension or a stale RPC protocol fails instead of running a substitute agent.
-- A child bash call that looks external is blocked without interactive approval.
-
-It prints one line on success and exits nonzero on any failure.
-
-When you set a different `cwd` for a task, the child reads that directory's project instructions. It loads that directory's skills but not its extensions. Loading another project's extensions into the parent Pi process would execute that code without the isolation of the old standalone child.
-
-## Run the upstream suite
+These checks do not call a live model:
 
 ```bash
-cd pi-subagents
-npm run typecheck
-PI_CODING_AGENT_DIR=$(mktemp -d) npm test
+npm --prefix pi-pstack test
+npm --prefix pi-pstack run typecheck
+
+(
+	PROFILE=$(mktemp -d)
+	trap 'rm -rf "$PROFILE"' EXIT
+	export PI_CODING_AGENT_DIR="$PROFILE"
+	npm --prefix pi-subagents run check
+	npm --prefix pi-subagents run test:e2e
+	npm --prefix pi-subagents run build
+)
 ```
 
-The suite must show all tests passing. The temporary `PI_CODING_AGENT_DIR` stops the tests from reading your personal `subagents.json` settings.
+The disposable profile prevents personal `subagents.json` settings from changing the upstream suite's agent registry. The consumer tests cover partial parallel failures, concurrency and result ordering, startup deadlines, cancellation, early replies, progress callback failures, listener and timer cleanup, relative working directories, and session-file lookup.
 
-## Try it interactively in an isolated profile
+The upstream end-to-end suite uses scripted providers by default. Its live-provider tests remain skipped unless explicitly enabled.
 
-This starts a real Pi session with both local packages loaded as extensions, still without touching your personal settings.
+## Run the live integration test
+
+The test starts real Pi processes and calls a live model. It requires the adjacent `pi-subagents` checkout. It accepts a built-in provider or the installed `pi-commandcode-provider`.
+
+Set `PI_PROVIDER` and `PI_MODEL` to an authenticated model that Pi lists as available. For example:
 
 ```bash
-cd pi-pstack-subagents-migration
-
-PROFILE=$(mktemp -d)
-cp ~/.pi/agent/auth.json "$PROFILE/auth.json"
-cp ~/.pi/agent/commandcode-models.json "$PROFILE/commandcode-models.json"
-
-PI_CODING_AGENT_DIR="$PROFILE" \
-  pi \
-  --provider commandcode \
-  --model deepseek/deepseek-v4-pro \
-  --extension "$HOME/.pi/agent/npm/node_modules/pi-commandcode-provider/index.ts" \
-  --extension ./pi-subagents/src/index.ts \
-  --extension ./pi-pstack/extensions/pstack/index.ts
+(
+	PROFILE=$(mktemp -d)
+	trap 'rm -rf "$PROFILE"' EXIT
+	cp "$HOME/.pi/agent/auth.json" "$PROFILE/auth.json"
+	PI_CODING_AGENT_DIR="$PROFILE" \
+		PI_PROVIDER=openai-codex \
+		PI_MODEL=gpt-6-sol \
+		node pi-pstack/test/integration.mjs
+)
 ```
 
-The pstack workflow skills are present, but most are explicit-only. They do not appear in the model's automatic skill list. Enter `/skill:arena` to invoke that skill directly. Enter `/poteto-mode` to enable sticky Poteto Mode for the current Pi session. While enabled, Pi exposes pstack's `subagent` tool instead of pi-subagents' model-facing `Agent` tool. `/poteto-mode off` restores `Agent`. A fresh disposable profile starts with this mode off.
+The test creates a second profile inside `PROFILE` and removes it in `finally`. The shell trap removes the outer profile and its copied credentials. Do not use your personal Pi directory as `PI_CODING_AGENT_DIR` for this test.
 
-Then ask for a delegate:
+For Commandcode, set `PI_PROVIDER=commandcode` and an available model, such as `PI_MODEL=deepseek/deepseek-v4-pro`. The test reads the installed provider at `$HOME/.pi/agent/npm/node_modules/pi-commandcode-provider/index.ts` and copies `$HOME/.pi/agent/commandcode-models.json` into its test profile.
+
+The live test checks bundled agent identity, ordered transcript messages, thinking-suffixed role selection, progress, parallel and chain modes, project-agent collisions, and relative child-cwd instructions and skills. It also checks that target-cwd extensions do not execute, missing or stale backends fail, installed child guards block an external-looking shell command, and Poteto Mode delegates through pstack's `subagent` tool to a widget-visible background agent.
+
+A successful run prints a summary and exits with status zero. A provider error, missing tool call, or failed assertion makes it fail.
+
+## Try Poteto Mode in a disposable profile
+
+Load both packages through profile settings so their extensions and skills also load in child sessions. Passing extension entry-point files with `pi -e` alone does not verify child guards or install the bundled skills.
+
+```bash
+(
+	PROFILE=$(mktemp -d)
+	trap 'rm -rf "$PROFILE"' EXIT
+	cp "$HOME/.pi/agent/auth.json" "$PROFILE/auth.json"
+	PI_CODING_AGENT_DIR="$PROFILE" pi install "$PWD/pi-subagents"
+	PI_CODING_AGENT_DIR="$PROFILE" pi install "$PWD/pi-pstack"
+	PI_CODING_AGENT_DIR="$PROFILE" pi list
+	PI_CODING_AGENT_DIR="$PROFILE" pi --provider openai-codex --model gpt-6-sol
+)
+```
+
+`pi list` must show the two local checkout paths. If you use another provider, register its package and copy any required model catalog into this profile before starting Pi.
+
+Inside Pi, enter `/poteto-mode`, then send:
 
 ```text
 Use the subagent tool with agent poteto-agent to read pi-pstack/package.json and report only its package name. Do not call Agent.
 ```
 
-Loading both with `--extension` proves the delegation path. It does not prove child-session guards, because explicit `--extension` flags are not automatically inherited by child sessions. The integration test covers that by loading both packages through the temporary profile's settings.
+Most pstack workflow skills are explicit-only. Invoke them with `/skill:arena` or `/skill:how`. While Poteto Mode is active, pstack hides the competing `Agent` tool but keeps the tintinweb RPC backend active. `/poteto-mode off` restores `Agent` if pstack disabled it. Exit with `/quit`.
 
-## Install locally for a fuller test
+The child runs in the same process. A different task `cwd` changes its project instructions and skills, but not the extensions loaded from the parent's configuration. This is not a process or security sandbox.
 
-If you want a longer manual session where child sessions inherit both packages, register both local checkouts inside a disposable profile instead of your personal settings.
+## Transfer an installation to another computer
+
+`test/on-computer.sh` downloads committed migration branches from an SSH host, installs the producer's dependencies, copies local authentication into a temporary profile, and starts Pi. Run it from the destination computer:
 
 ```bash
-cd pi-pstack-subagents-migration
-
-PROFILE=$(mktemp -d)
-cp ~/.pi/agent/auth.json "$PROFILE/auth.json"
-cp ~/.pi/agent/commandcode-models.json "$PROFILE/commandcode-models.json"
-
-cat > "$PROFILE/settings.json" <<EOF
-{
-  "packages": [
-    { "source": "$HOME/.pi/agent/npm/node_modules/pi-commandcode-provider" },
-    { "source": "$PWD/pi-subagents" },
-    { "source": "$PWD/pi-pstack" }
-  ]
-}
-EOF
-
-PI_CODING_AGENT_DIR="$PROFILE" pi --provider commandcode --model deepseek/deepseek-v4-pro
+bash pi-pstack/test/on-computer.sh SSH_HOST PROVIDER MODEL [PROVIDER_PACKAGE_PATH]
 ```
 
-Before starting Pi, run `PI_CODING_AGENT_DIR="$PROFILE" pi list`. It must list the local paths ending in `pi-pstack` and `pi-subagents`. If it lists `git:github.com/kkgogogo17/pi-pstack` or `npm:@tintinweb/pi-subagents` instead, the disposable profile was not applied. An empty `PROFILE` variable also makes Pi fall back to your personal installation.
+The source host must have both migration branches under `$HOME/projects/pi-pstack-subagents-migration`. The destination needs `ssh`, `git`, `npm`, and `pi`. The script leaves the temporary installation for another manual session and prints its cleanup command. Remove it after testing because it contains copied credentials.
 
-Your personal `~/.pi/agent/settings.json` is left alone. The profile under `/tmp` holds all changes. In Pi, enter `/poteto-mode` to enable the workflow, or `/skill:arena` to invoke a specific skill. Then use the `subagent` tool with agent `poteto-agent` and ask it to read `pi-pstack/package.json`. Exit with `/quit`. To remove the temporary profile and its copied credentials afterward, run `rm -rf "$PROFILE"` only while `PROFILE` still points to the directory you created with `mktemp -d`.
-
-## Release notes
-
-The `pi-subagents` changes are not released upstream. Until protocol 4 ships, `pi-pstack` requires the `migration/pstack-package-agents` branch. The adapter fails with a clear message when it sees an older or absent extension rather than running a different agent.
+`test/start-on-computer.sh` reopens the newest complete installation under `${TMPDIR:-/tmp}`. It uses Pi's automatic model selection and keeps terminal input connected. These scripts require an actual SSH host and terminal for end-to-end testing.
