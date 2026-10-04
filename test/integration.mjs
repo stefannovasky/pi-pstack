@@ -106,7 +106,7 @@ try {
   assert.match(stale[0].result.content[0].text, /RPC protocol 4/);
 
   const command = ["echo", "git", "push"].join(" ");
-  writeFileSync(join(profile, "settings.json"), JSON.stringify({ packages: [...(provider === "commandcode" ? [{ source: resolve(commandcodeExt, "..") }] : []), { source: resolve(root, "../pi-subagents") }, { source: root }] }));
+  writeFileSync(join(profile, "settings.json"), JSON.stringify({ packages: [...(provider === "commandcode" ? [{ source: resolve(commandcodeExt, "..") }] : []), { source: resolve(root, "../pi-subagents") }, { source: root, extensions: ["extensions/pstack/index.ts"] }] }));
   const protectedCall = invoke(`Call subagent with agent poteto-agent and task "Use bash once with the exact command ${command}. Report the tool result." Do not call bash yourself.`, []);
   assert.equal(protectedCall.length, 1);
   const childMessages = protectedCall[0].result.details.results[0].messages;

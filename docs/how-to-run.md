@@ -50,7 +50,7 @@ The upstream end-to-end suite uses scripted providers by default. Its live-provi
 
 ## Run the live integration test
 
-The test starts real Pi processes and calls a live model. It requires the adjacent `pi-subagents` checkout. It accepts a built-in provider or the installed `pi-commandcode-provider`.
+The test starts real Pi processes and calls a live model. It requires the adjacent `pi-subagents` checkout. Its package settings exclude pstack's bundled backend so it tests only the adjacent checkout. It accepts a built-in provider or the installed `pi-commandcode-provider`.
 
 Set `PI_PROVIDER` and `PI_MODEL` to an authenticated model that Pi lists as available. For example:
 
@@ -76,21 +76,20 @@ A successful run prints a summary and exits with status zero. A provider error, 
 
 ## Try Poteto Mode in a disposable profile
 
-Load both packages through profile settings so their extensions and skills also load in child sessions. Passing extension entry-point files with `pi -e` alone does not verify child guards or install the bundled skills.
+Install the local pstack package through profile settings so its extensions and skills also load in child sessions. It loads the pinned backend downloaded by `npm ci`, not the adjacent checkout. Passing extension entry-point files with `pi -e` alone does not verify child guards or install the bundled skills.
 
 ```bash
 (
 	PROFILE=$(mktemp -d)
 	trap 'rm -rf "$PROFILE"' EXIT
 	cp "$HOME/.pi/agent/auth.json" "$PROFILE/auth.json"
-	PI_CODING_AGENT_DIR="$PROFILE" pi install "$PWD/pi-subagents"
 	PI_CODING_AGENT_DIR="$PROFILE" pi install "$PWD/pi-pstack"
 	PI_CODING_AGENT_DIR="$PROFILE" pi list
 	PI_CODING_AGENT_DIR="$PROFILE" pi --provider openai-codex --model gpt-6-sol
 )
 ```
 
-`pi list` must show the two local checkout paths. If you use another provider, register its package and copy any required model catalog into this profile before starting Pi.
+`pi list` must show the local pstack checkout path. If you use another provider, register its package and copy any required model catalog into this profile before starting Pi.
 
 Inside Pi, enter `/poteto-mode`, then send:
 

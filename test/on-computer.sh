@@ -54,7 +54,7 @@ const [workspace, profile, providerPackage] = process.argv.slice(2);
 const packages = [
   ...(providerPackage ? [{ source: providerPackage }] : []),
   { source: `${workspace}/pi-subagents` },
-  { source: `${workspace}/pi-pstack` },
+  { source: `${workspace}/pi-pstack`, extensions: ["extensions/pstack/index.ts"] },
 ];
 fs.writeFileSync(`${profile}/settings.json`, JSON.stringify({ packages }));
 NODE

@@ -8,13 +8,17 @@
   "keywords": ["pi-package", "pi", "skills", "subagent", "pstack"],
   "files": ["extensions", "skills", "agents", "docs", "README.md", "LICENSE"],
   "pi": {
-    "extensions": ["./extensions/pstack/index.ts"],
+    "extensions": ["./node_modules/@tintinweb/pi-subagents/src/index.ts", "./extensions/pstack/index.ts"],
     "skills": ["./skills"]
   },
   "scripts": {
     "test": "node --experimental-strip-types --test test/*.test.mjs",
     "typecheck": "tsc --noEmit --strict --allowImportingTsExtensions --module esnext --moduleResolution bundler --target es2022 --skipLibCheck extensions/pstack/*.ts"
   },
+  "dependencies": {
+    "@tintinweb/pi-subagents": "git+https://github.com/stefannovasky/pi-subagents.git#af5938f45ef77d7799a64bc956873d45b0ad247c"
+  },
+  "bundledDependencies": ["@tintinweb/pi-subagents"],
   "devDependencies": {
     "@earendil-works/pi-ai": "0.86.0",
     "@earendil-works/pi-coding-agent": "0.86.0",

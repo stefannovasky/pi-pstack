@@ -4,18 +4,17 @@ A Pi-native port of [pstack](https://github.com/cursor/plugins/tree/main/pstack)
 
 ## Install
 
-Use a `tintinweb/pi-subagents` checkout with RPC protocol 4. Until those changes ship upstream, use the `migration/pstack-package-agents` branch. The unmodified `0.19.0` release is insufficient. Both packages must load in the same Pi session; Pi does not activate one package's extension when another package loads.
-
-For a disposable profile that leaves personal settings unchanged, follow [Run and test the integration](docs/how-to-run.md). That guide also covers deterministic tests, live-provider verification, and manual testing.
-
-For regular use, review both local checkouts first. The following commands modify your personal Pi settings. Run them from the directory containing both checkouts:
+With Pi already installed, run:
 
 ```bash
-pi install ./pi-subagents
-pi install ./pi-pstack
+pi install git:github.com/stefannovasky/pi-pstack
 ```
 
-Loading extension entry-point files with `pi -e` alone does not install pstack's skills or prove child-session guards. Register both packages in settings for the complete integration.
+Restart Pi after installation. This command also downloads the [modified pi-subagents backend](https://github.com/stefannovasky/pi-subagents). Pstack loads both extensions automatically. You do not need to clone either repository or install pi-subagents separately.
+
+If you already installed pi-subagents separately, remove that package entry first to avoid loading two copies. Follow the [installation guide](docs/installation.md) for prerequisites, setup, updates, and removal.
+
+For contributor checks, see [Run and test the integration](docs/how-to-run.md).
 
 ## Start
 
