@@ -7,7 +7,7 @@ This guide is for contributors testing local `pi-pstack` and `pi-subagents` chec
 Use this directory layout:
 
 ```text
-pi-pstack-subagents-migration/
+workspace/
 ├── pi-pstack/
 └── pi-subagents/
 ```
@@ -100,15 +100,3 @@ Use the subagent tool with agent poteto-agent to read pi-pstack/package.json and
 Most pstack workflow skills are explicit-only. Invoke them with `/skill:arena` or `/skill:how`. While Poteto Mode is active, pstack hides the competing `Agent` tool but keeps the tintinweb RPC backend active. `/poteto-mode off` restores `Agent` if pstack disabled it. Exit with `/quit`.
 
 The child runs in the same process. A different task `cwd` changes its project instructions and skills, but not the extensions loaded from the parent's configuration. This is not a process or security sandbox.
-
-## Transfer an installation to another computer
-
-`test/on-computer.sh` downloads committed migration branches from an SSH host, installs the producer's dependencies, copies local authentication into a temporary profile, and starts Pi. Run it from the destination computer:
-
-```bash
-bash pi-pstack/test/on-computer.sh SSH_HOST PROVIDER MODEL [PROVIDER_PACKAGE_PATH]
-```
-
-The source host must have both migration branches under `$HOME/projects/pi-pstack-subagents-migration`. The destination needs `ssh`, `git`, `npm`, and `pi`. The script leaves the temporary installation for another manual session and prints its cleanup command. Remove it after testing because it contains copied credentials.
-
-`test/start-on-computer.sh` reopens the newest complete installation under `${TMPDIR:-/tmp}`. It uses Pi's automatic model selection and keeps terminal input connected. These scripts require an actual SSH host and terminal for end-to-end testing.
